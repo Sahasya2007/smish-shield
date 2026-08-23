@@ -3,287 +3,184 @@ import {
   ShieldCheck,
   Smartphone,
   Terminal,
-  Activity,
   ArrowUpRight,
   Lock,
   Zap,
-  Radar,
-  GitBranch,
-  ScanLine,
-  Inbox,
-  Ban,
-  MapPinned,
-  Gauge,
-  FileLock2,
+  Radio,
+  Database,
+  CheckCircle2,
 } from "lucide-react";
 
 export default function Home() {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#030712] text-zinc-200 selection:bg-amber-500/20 selection:text-amber-200">
-      {/* Ambient background: cartographic grid + sapphire glow */}
+    <main className="min-h-screen bg-[#FAF8F5] text-[#142820] selection:bg-[#1B4332] selection:text-[#FAF8F5] font-sans antialiased flex flex-col justify-between">
+      {/* Precision Geometric Grid Overlay */}
       <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 -z-10"
+        className="pointer-events-none fixed inset-0 -z-10 opacity-30"
         style={{
           backgroundImage:
-            "linear-gradient(to right, rgba(148,163,184,0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,0.06) 1px, transparent 1px)",
-          backgroundSize: "44px 44px",
-          maskImage:
-            "radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 90%)",
+            "linear-gradient(to right, rgba(20, 40, 32, 0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(20, 40, 32, 0.04) 1px, transparent 1px)",
+          backgroundSize: "40px 40px",
         }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none fixed -top-40 left-1/2 -z-10 h-[560px] w-[900px] -translate-x-1/2 rounded-full opacity-[0.16] blur-[120px]"
-        style={{
-          background:
-            "radial-gradient(circle, #1e3a8a 0%, #0f172a 55%, transparent 75%)",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,transparent_0%,#030712_75%)]"
       />
 
-      <div className="mx-auto flex min-h-screen max-w-[1400px] flex-col px-6 sm:px-10 lg:px-16">
-        {/* Header */}
-        <header className="flex items-center justify-between border-b border-zinc-800/60 py-6">
+      {/* Top Navbar */}
+      <nav className="border-b border-[#1B4332]/10 bg-[#FAF8F5]/90 backdrop-blur-md px-6 py-4 sm:px-12">
+        <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="relative flex h-9 w-9 items-center justify-center rounded-md border border-zinc-700/70 bg-gradient-to-b from-zinc-900 to-zinc-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-              <ShieldCheck className="h-[18px] w-[18px] text-amber-400/90" strokeWidth={1.75} />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1B4332] text-[#FAF8F5] shadow-sm ring-1 ring-[#1B4332]/20">
+              <ShieldCheck className="h-5 w-5 stroke-[2]" />
             </div>
-            <div className="flex flex-col leading-none">
-              <span className="font-mono text-[13px] font-semibold tracking-tight text-zinc-100">
-                SMISH<span className="text-amber-400/90">SHIELD</span>
+            <div>
+              <span className="font-mono text-sm font-bold tracking-tight text-[#0D1F18]">
+                SMISH<span className="text-[#2D6A4F]">SHIELD</span>
               </span>
-              <span className="mt-1.5 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                </span>
-                Gateway Active — Telemetry Synced
+              <span className="ml-2 rounded border border-[#1B4332]/20 bg-[#1B4332]/5 px-2 py-0.5 font-mono text-[9px] font-semibold tracking-wide text-[#1B4332]">
+                PROTOTYPE v1.0
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="hidden items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-950/60 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-500 sm:flex">
-              <GitBranch className="h-3 w-3 text-cyan-400/80" strokeWidth={2} />
-              Build 2.4.1 // Stable
+          <div className="flex items-center gap-4 text-xs font-mono">
+            <div className="hidden sm:flex items-center gap-2 rounded-full border border-[#1B4332]/15 bg-[#1B4332]/5 px-3 py-1 text-[#1B4332]">
+              <span className="h-2 w-2 rounded-full bg-[#2D6A4F] animate-pulse" />
+              Engine Online
             </div>
-            <div className="text-right leading-tight">
-              <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-400">
-                Team CodeCrusaders
-              </p>
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-600">
-                Cyber Defense Division
-              </p>
+            <div className="text-right">
+              <span className="text-[#0D1F18] font-bold tracking-tight">Team CodeCrusaders</span>
             </div>
           </div>
-        </header>
+        </div>
+      </nav>
 
-        {/* Hero */}
-        <section className="grid grid-cols-1 gap-10 py-16 sm:py-20 lg:grid-cols-[1.15fr_0.85fr] lg:gap-6 lg:py-24">
-          <div>
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/[0.06] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-amber-300/90">
-              <Radar className="h-3 w-3" strokeWidth={2} />
-              National Fraud Telemetry Initiative
-            </div>
-
-            <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-zinc-50 sm:text-5xl lg:text-[3.4rem] lg:leading-[1.05]">
-              Pre-Click SMS Triage &amp;{" "}
-              <span className="bg-gradient-to-r from-amber-300 via-amber-200 to-zinc-200 bg-clip-text text-transparent">
-                National Fraud Telemetry.
-              </span>
-            </h1>
-
-            <p className="mt-6 max-w-xl text-[15px] leading-relaxed text-zinc-400">
-              A zero-trust SMS interceptor that quarantines malicious links before a
-              single tap, and a real-time gateway that routes verified fraud
-              signals straight to law enforcement command.
-            </p>
-
-            {/* Live status pill */}
-            <div className="mt-8 inline-flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-zinc-800 bg-zinc-950/70 px-5 py-3 font-mono text-[11px] tracking-tight text-zinc-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-              <span className="flex items-center gap-1.5">
-                <Activity className="h-3.5 w-3.5 text-cyan-400" strokeWidth={2} />
-                Latency:{" "}
-                <span className="text-zinc-200">1.2ms</span>
-              </span>
-              <span className="h-3 w-px bg-zinc-800" />
-              <span className="flex items-center gap-1.5">
-                <Lock className="h-3.5 w-3.5 text-emerald-400" strokeWidth={2} />
-                Zero-Trust Intercept:{" "}
-                <span className="text-emerald-400">ON</span>
-              </span>
-              <span className="h-3 w-px bg-zinc-800" />
-              <span className="flex items-center gap-1.5">
-                <ScanLine className="h-3.5 w-3.5 text-amber-400" strokeWidth={2} />
-                Model:{" "}
-                <span className="text-zinc-200">Heuristic v2.4</span>
-              </span>
-            </div>
+      {/* Main Content Area */}
+      <div className="mx-auto w-full max-w-7xl px-6 py-12 sm:px-12 lg:py-16">
+        {/* Hero Section */}
+        <div className="mb-14 max-w-3xl">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#1B4332]/15 bg-[#1B4332]/5 px-3.5 py-1 font-mono text-xs font-semibold text-[#1B4332] mb-6">
+            <Radio className="h-3.5 w-3.5 text-[#2D6A4F] animate-pulse" />
+            Zero-Trust SMS Threat Neutralization
           </div>
 
-          {/* Right rail live readout */}
-          <div className="flex flex-col justify-center gap-3 lg:pl-6 lg:pt-8">
-            <div className="rounded-lg border border-zinc-800/80 bg-gradient-to-b from-zinc-900/40 to-zinc-950/40 p-4">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">
-                Threat Feed // Last 60s
-              </p>
-              <div className="mt-3 space-y-2.5">
-                {[
-                  { label: "Smishing links neutralized", value: "1,842", tone: "text-emerald-400" },
-                  { label: "Suspicious senders flagged", value: "306", tone: "text-amber-400" },
-                  { label: "Cases escalated to CERT-In", value: "14", tone: "text-cyan-400" },
-                ].map((row) => (
-                  <div key={row.label} className="flex items-center justify-between border-t border-zinc-800/60 pt-2.5 first:border-t-0 first:pt-0">
-                    <span className="text-[12px] text-zinc-500">{row.label}</span>
-                    <span className={`font-mono text-[13px] font-medium ${row.tone}`}>{row.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
+          <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-[#081510] leading-[1.08] font-serif">
+            Stop SMS Phishing <br />
+            <span className="text-[#2D6A4F] italic font-normal">
+              Before Citizen Clicks.
+            </span>
+          </h1>
 
-        {/* Dual Launch Portal */}
-        <section className="grid grid-cols-1 gap-5 pb-6 lg:grid-cols-[0.95fr_1.05fr] lg:gap-6">
-          {/* Card 1 — Citizen Mobile Shield */}
+          <p className="mt-5 text-base sm:text-lg text-[#2A453B] leading-relaxed max-w-2xl">
+            Autonomous threat gateway designed to simulate on-device link quarantine for citizens while syncing live incident telemetry directly to cyber command cells.
+          </p>
+        </div>
+
+        {/* Dual Primary Portals */}
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+          {/* Card 1: Mobile Simulator */}
           <Link
             href="/mobile"
-            className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-zinc-800 bg-gradient-to-b from-zinc-900/60 via-zinc-950 to-zinc-950 p-8 transition-colors duration-300 hover:border-emerald-500/30 sm:p-10"
+            className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[#1B4332]/15 bg-white p-8 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-[#1B4332]/40 hover:shadow-xl hover:shadow-[#1B4332]/5"
           >
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-emerald-500/[0.06] blur-3xl transition-opacity duration-300 group-hover:opacity-150"
-            />
             <div>
-              <div className="mb-8 flex items-center justify-between">
-                <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-700/70 bg-zinc-900">
-                  <Smartphone className="h-5 w-5 text-emerald-400" strokeWidth={1.75} />
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#1B4332]/5 border border-[#1B4332]/15 text-[#1B4332] transition-all duration-200 group-hover:bg-[#1B4332] group-hover:text-[#FAF8F5] group-hover:shadow-md">
+                  <Smartphone className="h-6 w-6" />
                 </div>
-                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-emerald-300/90">
-                  Citizen Layer
+                <span className="font-mono text-[11px] uppercase tracking-wider text-[#1B4332] font-semibold bg-[#1B4332]/5 px-2.5 py-1 rounded-md border border-[#1B4332]/15">
+                  Client View
                 </span>
               </div>
 
-              <h2 className="text-2xl font-semibold tracking-tight text-zinc-50">
+              <h2 className="text-2xl font-bold text-[#081510] tracking-tight transition-colors duration-200 group-hover:text-[#1B4332]">
                 Citizen Mobile Shield
               </h2>
-              <p className="mt-3 max-w-sm text-[14px] leading-relaxed text-zinc-500">
-                A simulated telephony inbox with pre-click quarantine. Every
-                inbound link is detonated in an isolated vault and neutralized
-                before it ever reaches the user.
+              <p className="mt-3 text-sm text-[#385348] leading-relaxed">
+                Test inbound SMS payloads, view pre-click threat quarantine, and inspect link neutralization on an interactive smartphone simulator.
               </p>
 
-              <ul className="mt-6 space-y-2.5">
-                <li className="flex items-center gap-2.5 text-[13px] text-zinc-400">
-                  <Inbox className="h-3.5 w-3.5 shrink-0 text-zinc-600" strokeWidth={2} />
-                  Simulated SMS inbox with live triage states
-                </li>
-                <li className="flex items-center gap-2.5 text-[13px] text-zinc-400">
-                  <Ban className="h-3.5 w-3.5 shrink-0 text-zinc-600" strokeWidth={2} />
-                  Pre-click quarantine vault for suspect payloads
-                </li>
-                <li className="flex items-center gap-2.5 text-[13px] text-zinc-400">
-                  <Lock className="h-3.5 w-3.5 shrink-0 text-zinc-600" strokeWidth={2} />
-                  Automatic link neutralization on detection
-                </li>
-              </ul>
+              <div className="mt-6 space-y-2.5 font-mono text-xs text-[#2A453B] border-t border-[#1B4332]/10 pt-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#2D6A4F] shrink-0" />
+                  <span>Simulated Inbox &amp; Quarantine Box</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#2D6A4F] shrink-0" />
+                  <span>Real-Time URL Detonation</span>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-10 flex items-center justify-between border-t border-zinc-800/70 pt-5">
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-600">
-                Route // /mobile
+            <div className="mt-8 flex items-center justify-between border-t border-[#1B4332]/10 pt-4 font-mono text-xs font-semibold text-[#1B4332]">
+              <span className="transition-transform duration-200 group-hover:translate-x-0.5">
+                Launch Simulator
               </span>
-              <span className="flex items-center gap-1.5 text-[13px] font-medium text-zinc-200 transition-colors group-hover:text-emerald-300">
-                Launch Device Simulator
-                <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" strokeWidth={2} />
-              </span>
+              <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1 group-hover:-translate-y-1" />
             </div>
           </Link>
 
-          {/* Card 2 — Cyber Cell Command Telemetry */}
+          {/* Card 2: Cyber Dashboard */}
           <Link
             href="/dashboard"
-            className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-zinc-800 bg-gradient-to-b from-zinc-900/60 via-zinc-950 to-zinc-950 p-8 transition-colors duration-300 hover:border-amber-500/30 sm:p-10"
+            className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[#1B4332]/15 bg-white p-8 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-[#1B4332]/40 hover:shadow-xl hover:shadow-[#1B4332]/5"
           >
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-amber-500/[0.06] blur-3xl transition-opacity duration-300 group-hover:opacity-150"
-            />
             <div>
-              <div className="mb-8 flex items-center justify-between">
-                <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-700/70 bg-zinc-900">
-                  <Terminal className="h-5 w-5 text-amber-400" strokeWidth={1.75} />
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#1B4332]/5 border border-[#1B4332]/15 text-[#1B4332] transition-all duration-200 group-hover:bg-[#1B4332] group-hover:text-[#FAF8F5] group-hover:shadow-md">
+                  <Terminal className="h-6 w-6" />
                 </div>
-                <span className="rounded-full border border-amber-500/20 bg-amber-500/[0.06] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-amber-300/90">
-                  Command Layer
+                <span className="font-mono text-[11px] uppercase tracking-wider text-[#1B4332] font-semibold bg-[#1B4332]/5 px-2.5 py-1 rounded-md border border-[#1B4332]/15">
+                  Command View
                 </span>
               </div>
 
-              <h2 className="text-2xl font-semibold tracking-tight text-zinc-50">
-                Cyber Cell Command Telemetry
+              <h2 className="text-2xl font-bold text-[#081510] tracking-tight transition-colors duration-200 group-hover:text-[#1B4332]">
+                Cyber Cell Telemetry
               </h2>
-              <p className="mt-3 max-w-sm text-[14px] leading-relaxed text-zinc-500">
-                Real-time fraud aggregation across states, with live attack
-                heatmaps and takedown intelligence formatted to DoT and
-                CERT-In reporting standards.
+              <p className="mt-3 text-sm text-[#385348] leading-relaxed">
+                Aggregated threat streams, real-time campaign velocity analytics, compromised domain feeds, and automated takedown reporting.
               </p>
 
-              <ul className="mt-6 space-y-2.5">
-                <li className="flex items-center gap-2.5 text-[13px] text-zinc-400">
-                  <MapPinned className="h-3.5 w-3.5 shrink-0 text-zinc-600" strokeWidth={2} />
-                  Statewide attack heatmap, updated live
-                </li>
-                <li className="flex items-center gap-2.5 text-[13px] text-zinc-400">
-                  <Gauge className="h-3.5 w-3.5 shrink-0 text-zinc-600" strokeWidth={2} />
-                  Aggregated fraud volume &amp; velocity metrics
-                </li>
-                <li className="flex items-center gap-2.5 text-[13px] text-zinc-400">
-                  <FileLock2 className="h-3.5 w-3.5 shrink-0 text-zinc-600" strokeWidth={2} />
-                  DoT / CERT-In grade takedown case files
-                </li>
-              </ul>
+              <div className="mt-6 space-y-2.5 font-mono text-xs text-[#2A453B] border-t border-[#1B4332]/10 pt-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#2D6A4F] shrink-0" />
+                  <span>Live Threat Stream &amp; Metrics</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#2D6A4F] shrink-0" />
+                  <span>CERT-In Standard Export Schema</span>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-10 flex items-center justify-between border-t border-zinc-800/70 pt-5">
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-600">
-                Route // /dashboard
+            <div className="mt-8 flex items-center justify-between border-t border-[#1B4332]/10 pt-4 font-mono text-xs font-semibold text-[#1B4332]">
+              <span className="transition-transform duration-200 group-hover:translate-x-0.5">
+                Open Command Center
               </span>
-              <span className="flex items-center gap-1.5 text-[13px] font-medium text-zinc-200 transition-colors group-hover:text-amber-300">
-                Enter Command Dashboard
-                <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" strokeWidth={2} />
-              </span>
+              <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1 group-hover:-translate-y-1" />
             </div>
           </Link>
-        </section>
-
-        {/* Trust bar */}
-        <section className="mt-auto border-t border-zinc-800/60 py-8">
-          <div className="grid grid-cols-1 divide-y divide-zinc-800/60 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-            <div className="flex items-center gap-3 py-4 sm:py-0 sm:pr-6">
-              <Zap className="h-4 w-4 shrink-0 text-amber-400/80" strokeWidth={1.75} />
-              <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-500">
-                Zero-Trust Link Deactivation
-              </span>
-            </div>
-            <div className="flex items-center gap-3 py-4 sm:py-0 sm:px-6">
-              <Activity className="h-4 w-4 shrink-0 text-cyan-400/80" strokeWidth={1.75} />
-              <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-500">
-                Sub-Second Heuristic Scans
-              </span>
-            </div>
-            <div className="flex items-center gap-3 py-4 sm:py-0 sm:pl-6">
-              <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400/80" strokeWidth={1.75} />
-              <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-500">
-                CERT-In Standard Telemetry Logs
-              </span>
-            </div>
-          </div>
-        </section>
+        </div>
       </div>
+
+      {/* Footer Strip */}
+      <footer className="border-t border-[#1B4332]/10 bg-white/70 backdrop-blur-sm px-6 py-6 sm:px-12">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 font-mono text-xs text-[#385348]">
+          <div className="flex items-center gap-6">
+            <span className="flex items-center gap-1.5 font-medium text-[#1B4332]">
+              <Lock className="h-3.5 w-3.5" /> Pre-Click Sandbox
+            </span>
+            <span className="flex items-center gap-1.5 font-medium text-[#1B4332]">
+              <Zap className="h-3.5 w-3.5" /> Sub-Second Heuristics
+            </span>
+            <span className="flex items-center gap-1.5 font-medium text-[#1B4332]">
+              <Database className="h-3.5 w-3.5" /> Supabase Realtime
+            </span>
+          </div>
+          <div className="font-semibold text-[#081510]">
+            Team CodeCrusaders &bull; Cybersecurity Division
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
