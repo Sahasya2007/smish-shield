@@ -1,6 +1,6 @@
 import Link from "next/link";
+import SmishShieldLogo from "@/components/SmishShieldLogo";
 import {
-  ShieldCheck,
   Smartphone,
   Terminal,
   ArrowUpRight,
@@ -28,17 +28,10 @@ export default function Home() {
       <nav className="border-b border-[#1B4332]/10 bg-[#FAF8F5]/90 backdrop-blur-md px-6 py-4 sm:px-12">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1B4332] text-[#FAF8F5] shadow-sm ring-1 ring-[#1B4332]/20">
-              <ShieldCheck className="h-5 w-5 stroke-[2]" />
-            </div>
-            <div>
-              <span className="font-mono text-sm font-bold tracking-tight text-[#0D1F18]">
-                SMISH<span className="text-[#2D6A4F]">SHIELD</span>
-              </span>
-              <span className="ml-2 rounded border border-[#1B4332]/20 bg-[#1B4332]/5 px-2 py-0.5 font-mono text-[9px] font-semibold tracking-wide text-[#1B4332]">
-                PROTOTYPE v1.0
-              </span>
-            </div>
+            <SmishShieldLogo size={36} showText={true} />
+            <span className="hidden sm:inline-block rounded border border-[#1B4332]/20 bg-[#1B4332]/5 px-2 py-0.5 font-mono text-[9px] font-semibold tracking-wide text-[#1B4332]">
+              PROTOTYPE v1.0
+            </span>
           </div>
 
           <div className="flex items-center gap-4 text-xs font-mono">
