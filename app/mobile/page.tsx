@@ -14,8 +14,10 @@ import {
   Globe,
   Link2
 } from 'lucide-react';
-import { scanMessageOnDevice, ScanResult } from '@/lib/scanner';
-import { broadcastThreatLog, ThreatLog } from '@/lib/telemetry';
+
+// Relative imports matching local app routes
+import { scanMessageOnDevice, ScanResult } from './scanner';
+import { broadcastThreatLog, ThreatLog } from '../dashboard/telemetry';
 
 const PRESET_MESSAGES = [
   {
@@ -129,7 +131,7 @@ Targeted Action Requested: Block Sender ID & Freeze Malicious Web Domain.`;
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Quick Preset Buttons */}
           <div>
-            <label className="text-xs text-slate-400 mb-1.5 block font-medium">Preset Test Scenarios:</label>
+            <label className="text-xs text-slate-400 mb-1.5 block font-medium font-sans">Preset Test Scenarios:</label>
             <div className="flex flex-wrap gap-1.5">
               {PRESET_MESSAGES.map((preset, idx) => (
                 <button
@@ -225,7 +227,7 @@ Targeted Action Requested: Block Sender ID & Freeze Malicious Web Domain.`;
                 </div>
               )}
 
-              {/* Action Button: Trigger 1930 Helpline Modal */}
+              {/* Action Button */}
               {scanResult.riskScore >= 45 && (
                 <button
                   onClick={() => setIsModalOpen(true)}
@@ -255,7 +257,7 @@ Targeted Action Requested: Block Sender ID & Freeze Malicious Web Domain.`;
       {/* 1930 HELPLINE REPORT POPUP MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4 relative animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4 relative">
             <div className="flex items-start justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400">
