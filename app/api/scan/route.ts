@@ -1,53 +1,112 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-// ==========================================
-// Types
-// ==========================================
+// ======================================================
+// TYPES
+// ======================================================
 
 export type ThreatLevel = "SAFE" | "SUSPICIOUS" | "CRITICAL_PHISHING";
 
-export interface ScannedMessage {
+export interface ScanMessageDTO {
+  sender?: string;
+  rawText?: string;
+  message?: string;
+  text?: string;
+}
+
+export interface ScannedMessageRow {
   id: string;
   sender: string;
-  rawText: string;
-  receivedAt: string;
-  extractedUrl?: string;
-  threatLevel: ThreatLevel;
-  riskScore: number;
+  raw_text: string;
+  received_at: string;
+  extracted_url: string | null;
+  threat_level: ThreatLevel;
+  risk_score: number;
   reasons: string[];
-  isQuarantined: boolean;
+  is_quarantined: boolean;
 }
 
-export interface ScanMessageDTO {
-  sender: string;
-  rawText: string;
-}
+// ======================================================
+// CONFIGURATION & HEURISTICS CONSTANTS
+// ======================================================
 
-// ==========================================
-// In-memory database
-// ==========================================
+const SHORTENED_DOMAINS = new Set([
+  "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "cutt.ly", "rb.gy", "is.gd", "t.me"
+]);
 
-const scannedMessagesDb: ScannedMessage[] = [];
+const SUSPICIOUS_TLDS = [".top", ".xyz", ".club", ".work", ".click", ".link", ".site", ".live", ".online"];
 
-// ==========================================
-// Calculate threat level
-// ==========================================
+const SUSPICIOUS_HOST_KEYWORDS = ["kyc", "verify", "secure-login", "account-verify", "update-pan", "sbi-", "hdfc-"];
 
-function calculateThreatLevel(riskScore: number): ThreatLevel {
-  if (riskScore >= 75) {
-    return "CRITICAL_PHISHING";
+// Exact word-boundary patterns to prevent false positives (e.g., 'bank' matching 'blanket')
+const KEYWORD_PATTERNS: Array<{ pattern: RegExp; keyword: string }> = [
+  { pattern: /\burgent\b/i, keyword: "urgent" },
+  { pattern: /\bverify(\s+your)?\s+account\b/i, keyword: "verify account" },
+  { pattern: /\b(bank|banking)\b/i, keyword: "bank" },
+  { pattern: /\blottery\b/i, keyword: "lottery" },
+  { pattern: /\b(ssn|pan\s*card)\b/i, keyword: "sensitive identity token (PAN/SSN)" },
+  { pattern: /\bpassword\s+reset\b/i, keyword: "password reset" },
+  { pattern: /\bclick\s+here\b/i, keyword: "click here" },
+  { pattern: /\baccount\s+(blocked|suspended|cutoff)\b/i, keyword: "account blocked/suspended" },
+  { pattern: /\b(login|log\s*in)\b/i, keyword: "login" },
+  { pattern: /\botp\b/i, keyword: "otp" },
+  { pattern: /\bkyc(\s+update)?\b/i, keyword: "kyc" },
+  { pattern: /\b(disconnect|electricity\s+supply)\b/i, keyword: "utility disconnection" },
+];
+
+const URL_REGEX = /(?:(?:https?:\/\/)|(?:www\.))?(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/[^\s<>"']*)?/gi;
+
+// ======================================================
+// SAFE SUPABASE CLIENT
+// ======================================================
+
+function getSupabaseClient() {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    return null;
   }
 
-  if (riskScore >= 35) {
-    return "SUSPICIOUS";
-  }
-
-  return "SAFE";
+  return createClient(supabaseUrl, supabaseKey);
 }
 
-// ==========================================
-// Analyze message content
-// ==========================================
+// ======================================================
+// URL EXTRACTION & DOMAIN HEURISTICS
+// ======================================================
+
+function extractUrl(text: string): string | undefined {
+  const matches = text.match(URL_REGEX);
+  if (!matches || matches.length === 0) return undefined;
+
+  let url = matches[0].trim().replace(/[),.!?;:'"]+$/, "");
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://${url}`;
+  }
+  return url;
+}
+
+function getHostname(url?: string): string | undefined {
+  if (!url) return undefined;
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
+function isShortenedDomain(hostname: string): boolean {
+  for (const domain of SHORTENED_DOMAINS) {
+    if (hostname === domain || hostname.endsWith(`.${domain}`)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// ======================================================
+// MULTI-LAYERED HEURISTIC ENGINE
+// ======================================================
 
 function analyzeMessageContent(text: string): {
   riskScore: number;
@@ -57,166 +116,180 @@ function analyzeMessageContent(text: string): {
   let riskScore = 0;
   const reasons: string[] = [];
 
-  // Detect URLs
-  const urlRegex = /https?:\/\/[^\s]+/gi;
-  const urls = text.match(urlRegex);
-
-  const extractedUrl = urls ? urls[0] : undefined;
-
-  // ------------------------------------------
-  // URL detection
-  // ------------------------------------------
-
+  // 1. URL & Domain Sandbox Inspection
+  const extractedUrl = extractUrl(text);
   if (extractedUrl) {
-    riskScore += 30;
-    reasons.push("Contains external URL");
+    riskScore += 25;
+    reasons.push("Contains external link");
 
-    const lowerUrl = extractedUrl.toLowerCase();
+    const hostname = getHostname(extractedUrl);
+    if (hostname) {
+      if (isShortenedDomain(hostname)) {
+        riskScore += 35;
+        reasons.push("Uses URL shortener / redirect service");
+      }
 
-    if (
-      lowerUrl.includes("bit.ly") ||
-      lowerUrl.includes("tinyurl.com") ||
-      lowerUrl.includes("t.co")
-    ) {
-      riskScore += 30;
-      reasons.push("Uses shortened URL");
+      if (SUSPICIOUS_TLDS.some((tld) => hostname.endsWith(tld))) {
+        riskScore += 25;
+        reasons.push(`High-risk untrusted top-level domain (${hostname})`);
+      }
+
+      if (SUSPICIOUS_HOST_KEYWORDS.some((kw) => hostname.includes(kw))) {
+        riskScore += 25;
+        reasons.push("URL host matches credential phishing pattern");
+      }
     }
   }
 
-  // ------------------------------------------
-  // Suspicious keywords
-  // ------------------------------------------
-
-  const suspiciousKeywords = [
-    "urgent",
-    "verify account",
-    "bank",
-    "lottery",
-    "ssn",
-    "password reset",
-    "click here",
-    "account suspended",
-    "confirm your account",
-    "login",
-    "otp",
-  ];
-
-  const lowerText = text.toLowerCase();
-
-  for (const keyword of suspiciousKeywords) {
-    if (lowerText.includes(keyword)) {
+  // 2. Lexical & Panic Pattern Matching (Word-Boundary Protected)
+  for (const item of KEYWORD_PATTERNS) {
+    if (item.pattern.test(text)) {
       riskScore += 20;
-      reasons.push(`Contains high-risk keyword: "${keyword}"`);
+      reasons.push(`High urgency trigger detected: "${item.keyword}"`);
     }
   }
 
-  // ------------------------------------------
-  // Cap score at 100
-  // ------------------------------------------
-
-  riskScore = Math.min(riskScore, 100);
+  const normalizedScore = Math.min(riskScore, 100);
 
   if (reasons.length === 0) {
-    reasons.push("No immediate threats detected");
+    reasons.push("No immediate threat indicators detected");
   }
 
   return {
-    riskScore,
-    reasons,
+    riskScore: normalizedScore,
+    reasons: Array.from(new Set(reasons)),
     extractedUrl,
   };
 }
 
-// ==========================================
-// POST /api/scan
-// Scan a message
-// ==========================================
+function calculateThreatLevel(riskScore: number): ThreatLevel {
+  if (riskScore >= 70) return "CRITICAL_PHISHING";
+  if (riskScore >= 35) return "SUSPICIOUS";
+  return "SAFE";
+}
+
+// ======================================================
+// POST /api/scan (SMS Interception & Analysis)
+// ======================================================
 
 export async function POST(request: NextRequest) {
   try {
-    const body: ScanMessageDTO = await request.json();
+    const body = (await request.json()) as ScanMessageDTO;
 
-    const { sender, rawText } = body;
+    const sender = typeof body.sender === "string" && body.sender.trim() ? body.sender.trim() : "UNKNOWN";
+    const rawText = (typeof body.rawText === "string" ? body.rawText : body.message || body.text || "").trim();
 
-    // Validate input
-    if (
-      typeof sender !== "string" ||
-      typeof rawText !== "string" ||
-      !sender.trim() ||
-      !rawText.trim()
-    ) {
+    if (!rawText) {
       return NextResponse.json(
-        {
-          error: "sender and rawText are required fields.",
-        },
+        { error: "SMS message text is required (rawText, message, or text)." },
         { status: 400 }
       );
     }
 
-    // Analyze message
-    const {
-      riskScore,
-      reasons,
-      extractedUrl,
-    } = analyzeMessageContent(rawText);
-
-    // Calculate threat level
+    const { riskScore, reasons, extractedUrl } = analyzeMessageContent(rawText);
     const threatLevel = calculateThreatLevel(riskScore);
-
-    // Critical messages are quarantined
     const isQuarantined = threatLevel === "CRITICAL_PHISHING";
+    const receivedAt = new Date().toISOString();
 
-    // Create message
-    const newMessage: ScannedMessage = {
-      id: `msg_${Date.now()}_${Math.random()
-        .toString(36)
-        .substring(2, 7)}`,
-
-      sender: sender.trim(),
-
-      rawText: rawText.trim(),
-
-      receivedAt: new Date().toISOString(),
-
-      extractedUrl,
-
+    const responsePayload = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      sender,
+      rawText,
+      receivedAt,
+      extractedUrl: extractedUrl ?? undefined,
       threatLevel,
-
       riskScore,
-
       reasons,
-
       isQuarantined,
     };
 
-    // Store message
-    scannedMessagesDb.unshift(newMessage);
+    // PRIVACY POLICY (Zero-Knowledge Clean Telemetry):
+    // Only persist to remote telemetry database if flagged as suspicious or critical threat (>= 35)
+    const supabase = getSupabaseClient();
+    if (supabase && riskScore >= 35) {
+      try {
+        const { data, error } = await supabase
+          .from("scanned_messages")
+          .insert({
+            sender,
+            raw_text: rawText,
+            extracted_url: extractedUrl ?? null,
+            threat_level: threatLevel,
+            risk_score: riskScore,
+            reasons,
+            is_quarantined: isQuarantined,
+          })
+          .select("id")
+          .single();
 
-    return NextResponse.json(newMessage, {
-      status: 201,
-    });
-  } catch (error) {
-    console.error("Scan API error:", error);
-
-    return NextResponse.json(
-      {
-        error: "Invalid request body.",
-      },
-      {
-        status: 400,
+        if (!error && data) {
+          responsePayload.id = (data as { id: string }).id;
+        }
+      } catch (dbErr) {
+        console.warn("Supabase background telemetry sync skipped:", dbErr);
       }
+    }
+
+    return NextResponse.json(responsePayload, { status: 200 });
+  } catch (error) {
+    console.error("Scan API parsing error:", error);
+    return NextResponse.json(
+      { error: "Invalid JSON request body." },
+      { status: 400 }
     );
   }
 }
 
-// ==========================================
-// GET /api/scan
-// Return recent scanned messages
-// ==========================================
+// ======================================================
+// GET /api/scan (National Cyber Cell Feed)
+// ======================================================
 
 export async function GET() {
-  return NextResponse.json({
-    totalScanned: scannedMessagesDb.length,
-    recentMessages: scannedMessagesDb.slice(0, 10),
-  });
+  try {
+    const supabase = getSupabaseClient();
+
+    if (!supabase) {
+      return NextResponse.json({
+        total: 0,
+        messages: [],
+        status: "STANDALONE_MODE",
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("scanned_messages")
+      .select("*")
+      .order("received_at", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      return NextResponse.json(
+        { error: "Failed to query threat logs", details: error.message },
+        { status: 500 }
+      );
+    }
+
+    const rows = (data ?? []) as ScannedMessageRow[];
+    const messages = rows.map((item) => ({
+      id: item.id,
+      sender: item.sender,
+      rawText: item.raw_text,
+      receivedAt: item.received_at,
+      extractedUrl: item.extracted_url ?? undefined,
+      threatLevel: item.threat_level,
+      riskScore: item.risk_score,
+      reasons: item.reasons,
+      isQuarantined: item.is_quarantined,
+    }));
+
+    return NextResponse.json({
+      total: messages.length,
+      messages,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Internal telemetry pipeline failure" },
+      { status: 500 }
+    );
+  }
 }
