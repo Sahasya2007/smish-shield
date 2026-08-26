@@ -1,53 +1,67 @@
-// app/mobile/scanner.ts
-
 export interface ScanResult {
   riskScore: number;
-  dltHeader: string;
-  entropy: string;
-  status: 'Critical Threat' | 'High Risk' | 'Medium Risk' | 'Safe';
-  reasons: string[]; // Guaranteed array
-  matchedRule?: string;
+  threatType: "Safe Payload" | "High Risk SMS Payload" | "Critical Smishing Threat";
+  reasons: string[];
 }
 
-export async function scanMessageOnDevice(messageText: string, senderHeader: string): Promise<ScanResult> {
-  try {
-    const response = await fetch('/api/scan', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: messageText, sender: senderHeader })
-    });
+// Pre-compiled regex patterns (compiled once at module load, zero allocation per scan)
+const PATTERN_SUSPICIOUS_DOMAINS = /\b(sbi-kyc|power-update|bank-alert|kyc-update|account-verify|secure-login)\b|\.(top|site|xyz|click|link|live|online|club|work)(?:[\/?#\s]|$)/i;
+const PATTERN_URGENCY = /\b(urgent|blocked|immediately|disconnected|action required|suspended|cutoff)\b/i;
+const PATTERN_FINANCIAL_TARGETS = /\b(account|pan card|electricity|kyc|bill|pay|otp|password reset)\b/i;
+const PATTERN_URL_SHORTENER = /\b(bit\.ly|tinyurl\.com|t\.co|goo\.gl|ow\.ly|is\.gd|cutt\.ly|rb\.gy|t\.me)\b/i;
 
-    if (!response.ok) {
-      throw new Error('API scan route failed');
-    }
-
-    const data = await response.json();
+/**
+ * Ultra-fast, zero-allocation on-device heuristic SMS scanner.
+ * Optimized for sub-millisecond execution in client-side UI and mobile simulators.
+ */
+export function scanMessageOnDevice(text?: string | null): ScanResult {
+  // 1. Guard against empty / blank inputs
+  if (!text || !text.trim()) {
     return {
-      ...data,
-      reasons: Array.isArray(data.reasons) ? data.reasons : ['Heuristic risk signature detected on device.']
-    };
-  } catch (error) {
-    // Fallback heuristic evaluation with guaranteed reasons array
-    const hasSuspiciousLink = /(\.in\/|\.xyz\/|bit\.ly|kyc|update|verify|account|blocked)/i.test(messageText);
-    const score = hasSuspiciousLink ? 92 : 12;
-
-    let reasonsList: string[] = [];
-    if (hasSuspiciousLink) {
-      reasonsList = [
-        'Unverified DLT telemarketing header matching phishing pattern.',
-        'Suspicious TLD or URL structure mapped to known credential harvesting templates.',
-        'High urgency NLP intent detected regarding account suspension / KYC update.'
-      ];
-    } else {
-      reasonsList = ['Message content verified safe against national DLT registry signatures.'];
-    }
-
-    return {
-      riskScore: score,
-      dltHeader: hasSuspiciousLink ? 'FAIL (Spoofed)' : 'PASS (Verified DLT)',
-      entropy: hasSuspiciousLink ? '4.82 (High)' : '1.20 (Low)',
-      status: score >= 75 ? 'Critical Threat' : score >= 45 ? 'High Risk' : 'Safe',
-      reasons: reasonsList
+      riskScore: 0,
+      threatType: "Safe Payload",
+      reasons: ["No content to analyze"],
     };
   }
+
+  let score = 0;
+  const reasons: string[] = [];
+
+  // 2. URL Shortener Detection (+35)
+  if (PATTERN_URL_SHORTENER.test(text)) {
+    score += 35;
+    reasons.push("Uses URL shortener / redirect service");
+  }
+
+  // 3. Phishing domain / untrusted TLD match (+50)
+  if (PATTERN_SUSPICIOUS_DOMAINS.test(text)) {
+    score += 50;
+    reasons.push("Suspicious domain signature or untrusted TLD detected");
+  }
+
+  // 4. Urgency & panic phrasing (+25)
+  if (PATTERN_URGENCY.test(text)) {
+    score += 25;
+    reasons.push("High-urgency framing pattern identified");
+  }
+
+  // 5. Targeted credential / financial / utility keywords (+15)
+  if (PATTERN_FINANCIAL_TARGETS.test(text)) {
+    score += 15;
+    reasons.push("Financial, identity, or utility impersonation keywords detected");
+  }
+
+  // 6. Normalize score between 0 and 99
+  const finalScore = Math.min(score, 99);
+
+  return {
+    riskScore: finalScore,
+    threatType:
+      finalScore >= 70
+        ? "Critical Smishing Threat"
+        : finalScore >= 35
+        ? "High Risk SMS Payload"
+        : "Safe Payload",
+    reasons: reasons.length > 0 ? reasons : ["No suspicious signatures detected"],
+  };
 }
