@@ -14,10 +14,24 @@ import {
   Smartphone,
   Send,
   RefreshCw,
-  ShieldCheck
+  ShieldCheck,
+  ShieldOff,
+  UserX,
+  FileText,
+  Share2,
+  Copy,
+  MessageSquarePlus
 } from 'lucide-react';
-import { scanMessageOnDevice, ScanResult } from './scanner';
-import { broadcastThreatLog } from '../dashboard/telemetry';
+import { scanMessageOnDevice } from './scanner';
+import { broadcastThreatLog, ThreatStatus } from '../dashboard/telemetry';
+
+interface ExtendedScanHUD {
+  riskScore: number;
+  dltHeader: string;
+  entropy: string;
+  status: ThreatStatus;
+  reasons: string[];
+}
 
 const PRESET_MESSAGES = [
   {
@@ -44,17 +58,17 @@ export default function MobileSimulator() {
   const [customSender, setCustomSender] = useState('AD-BANKALERT');
   const [isQuarantined, setIsQuarantined] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  
   const [isScanning, setIsScanning] = useState(false);
-  const [scanResult, setScanResult] = useState<ScanResult>({
+
+  const [scanResult, setScanResult] = useState<ExtendedScanHUD>({
     riskScore: 92,
     dltHeader: 'FAIL (Spoofed)',
     entropy: '4.82 (High)',
     status: 'Critical Threat',
     reasons: [
-      'Unverified DLT telemarketing header matching phishing patterns.',
-      'Suspicious TLD or URL structure mapped to credential harvesting templates.',
-      'High-urgency NLP intent detected regarding account suspension / KYC update.'
+      'Suspicious domain signature or untrusted TLD detected',
+      'High-urgency framing pattern identified',
+      'Financial, identity, or utility impersonation keywords detected'
     ]
   });
 
@@ -63,21 +77,38 @@ export default function MobileSimulator() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const handleRunScan = async (textToScan: string, senderHeader: string) => {
+  const handleRunScan = (textToScan: string, senderHeader: string) => {
     setIsScanning(true);
     setIsQuarantined(false);
+
     try {
-      const result = await scanMessageOnDevice(textToScan, senderHeader);
-      setScanResult(result);
+      const result = scanMessageOnDevice(textToScan);
+
+      const mappedStatus: ThreatStatus = 
+        result.riskScore >= 70 
+          ? 'Critical Threat' 
+          : result.riskScore >= 35 
+          ? 'High Risk' 
+          : 'Safe';
+
+      const hudData: ExtendedScanHUD = {
+        riskScore: result.riskScore,
+        dltHeader: /^(AD|AX|VM|VK|BW|DM)-/i.test(senderHeader) ? 'FAIL (Spoofed / Unverified)' : 'VERIFIED TRAI DLT',
+        entropy: result.riskScore >= 70 ? '4.82 (High)' : result.riskScore >= 35 ? '3.14 (Moderate)' : '1.85 (Low)',
+        status: mappedStatus,
+        reasons: result.reasons
+      };
+
+      setScanResult(hudData);
 
       if (result.riskScore >= 45) {
         broadcastThreatLog({
           id: `INC-${Math.floor(1000 + Math.random() * 9000)}`,
           sender: senderHeader,
-          timestamp: 'Just now',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           message: textToScan,
           riskScore: result.riskScore,
-          status: result.status
+          status: mappedStatus
         });
       }
     } catch (err) {
@@ -121,7 +152,42 @@ export default function MobileSimulator() {
     }, 800);
   };
 
-  const isCritical = scanResult.riskScore >= 75;
+  // Interactive Action Handlers
+  const handleFalsePositive = () => {
+    showToast('Marked as False Positive. Heuristic whitelist updated.');
+  };
+
+  const handleBlockSender = () => {
+    showToast(`Sender ID ${selectedMessage.sender} added to blackhole filter.`);
+  };
+
+  const handleViewRawHeaders = () => {
+    setActiveTab('inspector');
+    showToast('Loaded raw payload bytes into Byte Inspector.');
+  };
+
+  const handleShareIoC = () => {
+    showToast('IoC bundle generated & copied for community feed sharing.');
+  };
+
+  const handleCopyPayload = () => {
+    navigator.clipboard?.writeText(selectedMessage.text);
+    showToast('Malicious text snippet copied to clipboard.');
+  };
+
+  const handleSimulateFollowUp = () => {
+    const followUpText = "Urgent: Your account will be permanently blocked within 2 hours. Click here to re-verify: sbi-secure-update.com";
+    const followUpObj = {
+      id: `MSG-${Math.floor(1000 + Math.random() * 9000)}`,
+      sender: selectedMessage.sender,
+      text: followUpText
+    };
+    setSelectedMessage(followUpObj);
+    handleRunScan(followUpObj.text, followUpObj.sender);
+    showToast('Injected sequential attacker follow-up SMS vector.');
+  };
+
+  const isCritical = scanResult.riskScore >= 70;
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-[#081510] font-sans p-4 sm:p-8 relative">
@@ -135,7 +201,6 @@ export default function MobileSimulator() {
 
       <div className="max-w-6xl mx-auto space-y-6">
         
-        {/* Header Controller Bar */}
         <div className="bg-[#142820] text-[#FAF8F5] rounded-2xl p-6 border border-[#1B4332]/40 shadow-lg flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <svg className="w-10 h-10 shrink-0 shadow-md rounded-xl" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -186,7 +251,6 @@ export default function MobileSimulator() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* Left Column: Preset Selector & Custom Payload Injector */}
           <div className="lg:col-span-5 space-y-4">
             <div className="bg-white border border-[#1B4332]/15 rounded-2xl p-5 shadow-sm space-y-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#1B4332] flex items-center gap-2">
@@ -251,7 +315,6 @@ export default function MobileSimulator() {
             </div>
           </div>
 
-          {/* Right Column: Native Phone Shell matching exact vector height */}
           <div className="lg:col-span-7 flex flex-col items-center">
             
             {activeTab === 'intercept' ? (
@@ -270,7 +333,7 @@ export default function MobileSimulator() {
                   </div>
                 </div>
 
-                <div className="mt-3 px-3 py-1.5 bg-[#1B4332]/90 backdrop-blur-md rounded-t-lg border-b border-[#2D6A4F]/40 flex items-center justify-between text-white">
+                <div className="mt-3 px-3 py-1.5 bg-[#1B4332]/95 backdrop-blur-md rounded-t-lg border-b border-[#2D6A4F]/40 flex items-center justify-between text-white">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-full bg-[#2D6A4F] flex items-center justify-center font-bold text-[10px]">
                       {selectedMessage.sender.slice(0, 2)}
@@ -290,7 +353,7 @@ export default function MobileSimulator() {
 
                   <div className={`max-w-[90%] bg-white rounded-xl rounded-tl-sm p-3 shadow-sm border transition-all ${isQuarantined ? 'opacity-40 border-dashed border-neutral-400' : 'border-neutral-200'} relative`}>
                     <p className="text-[11px] text-[#081510] leading-relaxed font-medium">
-                      {isQuarantined ? '[QUARANTINED &amp; SANITIZED BY SMISHSHIELD]' : selectedMessage.text}
+                      {isQuarantined ? '[QUARANTINED & SANITIZED BY SMISHSHIELD]' : selectedMessage.text}
                     </p>
                     <span className="text-[8px] text-neutral-400 block text-right mt-1 font-mono">09:41 AM</span>
                   </div>
@@ -348,6 +411,62 @@ export default function MobileSimulator() {
                     </div>
                   </div>
 
+                  {/* Comprehensive Interactive Options Box */}
+                  <div className="mt-1 bg-white border border-neutral-200 rounded-xl p-2.5 shadow-sm space-y-2 animate-fade-in">
+                    <div className="flex items-center justify-between px-0.5">
+                      <p className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider">Quick Actions &amp; Overrides</p>
+                      <span className="text-[8px] font-mono text-[#2D6A4F] bg-[#1B4332]/10 px-1.5 py-0.5 rounded">Active Sandbox</span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button
+                        onClick={handleFalsePositive}
+                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs"
+                      >
+                        <ShieldOff className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>False Positive</span>
+                      </button>
+                      <button
+                        onClick={handleBlockSender}
+                        className="bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs"
+                      >
+                        <UserX className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Block Sender</span>
+                      </button>
+                      <button
+                        onClick={handleViewRawHeaders}
+                        className="bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-sky-600" />
+                        <span>Raw Headers</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-neutral-100">
+                      <button
+                        onClick={handleShareIoC}
+                        className="bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs"
+                      >
+                        <Share2 className="w-3.5 h-3.5 text-purple-600" />
+                        <span>Share IoC</span>
+                      </button>
+                      <button
+                        onClick={handleCopyPayload}
+                        className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs"
+                      >
+                        <Copy className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Copy Text</span>
+                      </button>
+                      <button
+                        onClick={handleSimulateFollowUp}
+                        className="bg-neutral-900 hover:bg-neutral-800 text-white border border-neutral-700 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs"
+                      >
+                        <MessageSquarePlus className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Follow-up SMS</span>
+                      </button>
+                    </div>
+                  </div>
+
                 </div>
 
                 <div className="py-2 bg-[#081510] text-center">
@@ -356,7 +475,7 @@ export default function MobileSimulator() {
 
               </div>
             ) : (
-              <div className="w-full bg-white p-6 rounded-2xl border border-[#1B4332]/20 shadow-sm space-y-5">
+              <div className="w-full bg-white p-6 rounded-2xl border border-[#1B4332]/20 shadow-sm space-y-5 animate-fade-in">
                 <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
                   <div className="flex items-center gap-2">
                     <Terminal className="w-5 h-5 text-[#2D6A4F]" />
