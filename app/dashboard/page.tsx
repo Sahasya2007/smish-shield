@@ -6,118 +6,57 @@ import {
   Database, 
   ExternalLink, 
   Download, 
-  CheckCircle2, 
   PieChart, 
   Building2, 
   Zap, 
   KeyRound,
-  Search,
-  Filter,
   ShieldAlert,
-  AlertTriangle,
   Clock,
-  Lock,
-  FileCheck
+  FileCheck,
+  ArrowRight,
+  Radio,
+  CheckCircle,
+  RefreshCw,
+  Share2
 } from 'lucide-react';
 import Link from 'next/link';
+import { getStoredLogs, ThreatLog } from './telemetry';
 
-// Relative import local to app/dashboard/
-import { getStoredLogs, subscribeToLogs, ThreatLog } from './telemetry';
-
-// Operational initial mock logs filtered STRICTLY to threat samples (riskScore >= 45)
-const initialMockLogs: ThreatLog[] = [
-  { 
-    id: 'INC-9041', 
-    sender: '+91 98765 43210', 
-    message: 'URGENT: SBI account blocked. Update PAN at http://sbi-kyc.top', 
-    riskScore: 92, 
-    status: 'Critical Threat', 
-    timestamp: '2 mins ago' 
-  },
-  { 
-    id: 'INC-9042', 
-    sender: 'AX-HDFCBK', 
-    message: 'Your electricity bill is overdue. Pay via http://power-update.site', 
-    riskScore: 84, 
-    status: 'High Risk', 
-    timestamp: '14 mins ago' 
-  },
-  { 
-    id: 'INC-9043', 
-    sender: '+91 70123 45678', 
-    message: 'Congratulations! You won Rs 5000 cashback. Claim at http://bit.ly/claim', 
-    riskScore: 65, 
-    status: 'Medium Risk', 
-    timestamp: '1 hour ago' 
-  },
-];
+const TAKEDOWN_STORAGE_KEY = 'smishshield_dispatched_takedowns';
 
 export default function AdminDashboard() {
-  const [logs, setLogs] = useState<ThreatLog[]>([]);
   const [totalIntercepts, setTotalIntercepts] = useState(14230);
-  const [takedowns, setTakedowns] = useState<Record<string, boolean>>({});
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterCategory, setFilterCategory] = useState<'ALL' | 'CRITICAL' | 'BANKING' | 'UTILITY'>('ALL');
+  const [threatCount, setThreatCount] = useState(0);
+  const [dispatchedTakedowns, setDispatchedTakedowns] = useState(0);
+  const [syncStatus, setSyncStatus] = useState<'IDLE' | 'SYNCING' | 'SYNCED'>('IDLE');
 
   useEffect(() => {
-    // 1. Initial Load: Filter out any safe logs (< 45) to maintain strict citizen privacy
     const stored = getStoredLogs().filter((l) => l.riskScore >= 45);
-    setLogs([...stored, ...initialMockLogs]);
+    setThreatCount(stored.length + 3);
 
-    // 2. Real-Time Subscription: Privacy Gate prevents non-threat logs from hitting state
-    const unsubscribe = subscribeToLogs((newLog) => {
-      if (newLog.riskScore >= 45) {
-        setLogs((prevLogs) => [newLog, ...prevLogs]);
-        setTotalIntercepts((prev) => prev + 1);
-      }
-    });
-
-    return () => unsubscribe();
+    // Load shared takedown count starting from 0
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(TAKEDOWN_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setDispatchedTakedowns(Object.keys(parsed).length);
+        }
+      } catch {}
+    }
   }, []);
 
-  const handleTakedown = (id: string) => {
-    setTakedowns((prev) => ({ ...prev, [id]: true }));
+  const handleGatewaySync = () => {
+    setSyncStatus('SYNCING');
+    setTimeout(() => {
+      setSyncStatus('SYNCED');
+      setTimeout(() => setSyncStatus('IDLE'), 3000);
+    }, 1200);
   };
-
-  const exportCSV = () => {
-    const headers = ['Incident ID,Sender Telephony,Message Content,Risk Score %,Classification,Timestamp\n'];
-    const rows = logs.map(
-      (l) => `"${l.id}","${l.sender}","${l.message.replace(/"/g, '""')}",${l.riskScore},"${l.status}","${l.timestamp}"`
-    );
-    const blob = new Blob([headers.concat(rows.join('\n')).join('')], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `smishshield_certin_incident_report_${Date.now()}.csv`;
-    a.click();
-  };
-
-  // Enforce zero safe messages rendered regardless of user search filter
-  const filteredLogs = logs
-    .filter((log) => log.riskScore >= 45)
-    .filter((log) => {
-      const matchesSearch =
-        log.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.sender.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.id.toLowerCase().includes(searchTerm.toLowerCase());
-
-      if (filterCategory === 'CRITICAL') return matchesSearch && log.riskScore >= 75;
-      if (filterCategory === 'BANKING') return matchesSearch && /sbi|hdfc|bank|pan|kyc/i.test(log.message);
-      if (filterCategory === 'UTILITY') return matchesSearch && /electricity|bill|power|water/i.test(log.message);
-      return matchesSearch;
-    });
-
-  const totalThreats = logs.length || 1;
-  const bankingCount = logs.filter((l) => /sbi|hdfc|bank|pan|kyc/i.test(l.message)).length;
-  const utilityCount = logs.filter((l) => /electricity|bill|power|water/i.test(l.message)).length;
-
-  const bankingPct = Math.round((bankingCount / totalThreats) * 100) || 45;
-  const utilityPct = Math.round((utilityCount / totalThreats) * 100) || 35;
-  const rewardPct = Math.max(0, 100 - (bankingPct + utilityPct));
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-[#081510] font-sans">
-      {/* Institutional Top Classification Strip */}
+    <div className="min-h-screen bg-[#0D1F18] text-[#FAF8F5] font-sans">
+      {/* Top Banner Strip */}
       <div className="bg-[#142820] text-[#FAF8F5] text-[11px] font-mono py-1.5 px-6 border-b border-[#1B4332]/40 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -132,7 +71,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Header */}
-      <header className="max-w-7xl mx-auto px-6 py-6 border-b border-[#1B4332]/15 flex items-center justify-between">
+      <header className="max-w-7xl mx-auto px-6 py-6 border-b border-[#1B4332]/40 flex items-center justify-between">
         <div className="flex items-center gap-3.5">
           <div className="w-11 h-11 flex-shrink-0">
             <svg width="44" height="44" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -146,28 +85,20 @@ export default function AdminDashboard() {
             </svg>
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-[#081510] tracking-tight">
+            <h1 className="text-xl font-extrabold text-white tracking-tight">
               SmishShield SOC Incident Dashboard
             </h1>
-            <p className="text-xs text-[#1B4332]/70 font-medium">
+            <p className="text-xs text-emerald-400/80 font-medium">
               National Real-Time Smishing Payload Telemetry &amp; Regulatory Mitigation Engine
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            onClick={exportCSV}
-            className="flex items-center gap-2 bg-[#FAF8F5] hover:bg-white text-[#1B4332] border border-[#1B4332]/30 text-xs font-bold py-2 px-3.5 rounded-xl transition shadow-sm"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export CERT-In CSV</span>
-          </button>
-
           <Link
             href="/mobile"
             target="_blank"
-            className="flex items-center gap-2 bg-[#1B4332] hover:bg-[#2D6A4F] text-[#FAF8F5] text-xs font-semibold py-2 px-4 rounded-xl transition shadow-sm"
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold py-2 px-4 rounded-xl transition shadow-sm"
           >
             <span>Launch Phone Simulator</span>
             <ExternalLink className="w-3.5 h-3.5" />
@@ -176,232 +107,187 @@ export default function AdminDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto p-6 space-y-6">
+        {/* Hero Banner Section */}
+        <div className="bg-gradient-to-r from-[#142820] to-[#1B4332] border border-[#2D6A4F]/40 rounded-3xl p-8 shadow-lg relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-3 max-w-2xl z-10">
+            <div className="inline-flex items-center gap-2 bg-emerald-950/80 border border-emerald-800/60 px-3 py-1 rounded-full text-[11px] font-mono text-emerald-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              National Defense Grid Live
+            </div>
+            <h2 className="text-3xl font-black text-white tracking-tight">
+              Protecting Citizens Against Advanced Smishing Vectors
+            </h2>
+            <p className="text-sm text-emerald-100/80 leading-relaxed">
+              SmishShield integrates on-device heuristics with real-time telecom gateway enforcement to intercept malicious payloads before they compromise consumer credentials.
+            </p>
+          </div>
+
+          <div className="z-10 flex-shrink-0">
+            <Link
+              href="/dashboard/monitor"
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-3 px-5 rounded-xl transition shadow-md"
+            >
+              <span>View Live Telemetry Feed</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+
         {/* Editorial Telemetry Metric Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white border border-[#1B4332]/15 rounded-2xl p-4 shadow-sm">
-            <span className="text-xs text-[#1B4332]/70 font-medium">Total Smishing Intercepts</span>
-            <div className="text-2xl font-black text-[#081510] mt-1">{totalIntercepts.toLocaleString()}</div>
-            <span className="text-[10px] text-[#2D6A4F] mt-1 block font-semibold">
+          <div className="bg-[#142820]/90 border border-[#1B4332] rounded-2xl p-4 shadow-sm">
+            <span className="text-xs text-emerald-300/70 font-medium">Total Smishing Intercepts</span>
+            <div className="text-2xl font-black text-white mt-1">{totalIntercepts.toLocaleString()}</div>
+            <span className="text-[10px] text-emerald-400 mt-1 block font-semibold">
               &uarr; Live telemetry stream sync
             </span>
           </div>
 
-          <div className="bg-white border border-[#1B4332]/15 rounded-2xl p-4 shadow-sm">
-            <span className="text-xs text-[#1B4332]/70 font-medium">High Risk Inceptions (&ge;45%)</span>
-            <div className="text-2xl font-black text-rose-700 mt-1">{logs.length}</div>
-            <span className="text-[10px] text-rose-600 mt-1 block font-semibold flex items-center gap-1">
+          <div className="bg-[#142820]/90 border border-[#1B4332] rounded-2xl p-4 shadow-sm">
+            <span className="text-xs text-emerald-300/70 font-medium">High Risk Inceptions (&ge;45%)</span>
+            <div className="text-2xl font-black text-rose-400 mt-1">{threatCount}</div>
+            <span className="text-[10px] text-rose-400 mt-1 block font-semibold flex items-center gap-1">
               <ShieldAlert className="w-3 h-3 inline" /> Active threats flagged
             </span>
           </div>
 
-          <div className="bg-white border border-[#1B4332]/15 rounded-2xl p-4 shadow-sm">
-            <span className="text-xs text-[#1B4332]/70 font-medium">Avg Heuristic Engine Latency</span>
-            <div className="text-2xl font-black text-[#1B4332] mt-1">12ms</div>
-            <span className="text-[10px] text-[#2D6A4F] mt-1 block font-semibold flex items-center gap-1">
+          <div className="bg-[#142820]/90 border border-[#1B4332] rounded-2xl p-4 shadow-sm">
+            <span className="text-xs text-emerald-300/70 font-medium">Avg Heuristic Engine Latency</span>
+            <div className="text-2xl font-black text-emerald-400 mt-1">12ms</div>
+            <span className="text-[10px] text-emerald-300/70 mt-1 block font-semibold flex items-center gap-1">
               <Clock className="w-3 h-3 inline" /> On-Device Model Verification
             </span>
           </div>
 
-          <div className="bg-white border border-[#1B4332]/15 rounded-2xl p-4 shadow-sm">
-            <span className="text-xs text-[#1B4332]/70 font-medium">CERT-In Takedowns Dispatched</span>
-            <div className="text-2xl font-black text-[#D97706] mt-1">{Object.keys(takedowns).length}</div>
-            <span className="text-[10px] text-[#D97706] mt-1 block font-semibold flex items-center gap-1">
+          {/* CERT-In Takedowns Dispatched (Starts at 0 and increments with clicks) */}
+          <div className="bg-[#142820]/90 border border-[#1B4332] rounded-2xl p-4 shadow-sm">
+            <span className="text-xs text-emerald-300/70 font-medium">CERT-In Takedowns Dispatched</span>
+            <div className="text-2xl font-black text-amber-400 mt-1">{dispatchedTakedowns}</div>
+            <span className="text-[10px] text-amber-400 mt-1 block font-semibold flex items-center gap-1">
               <FileCheck className="w-3 h-3 inline" /> Section 79(3)(b) Notices Issued
             </span>
           </div>
         </div>
 
         {/* Dynamic Threat Category Distribution */}
-        <div className="bg-white border border-[#1B4332]/15 rounded-2xl p-5 space-y-3 shadow-sm">
+        <div className="bg-[#142820]/90 border border-[#1B4332] rounded-2xl p-5 space-y-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold text-[#081510] uppercase tracking-wider flex items-center gap-2">
-              <PieChart className="w-4 h-4 text-[#1B4332]" />
+            <h2 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <PieChart className="w-4 h-4 text-emerald-400" />
               Threat Vector Distribution
             </h2>
-            <span className="text-[10px] text-[#1B4332]/70 font-mono">Dynamic Pattern Analysis</span>
+            <span className="text-[10px] text-emerald-300/70 font-mono">Dynamic Pattern Analysis</span>
           </div>
 
-          <div className="h-3 w-full bg-[#FAF8F5] rounded-full overflow-hidden flex border border-[#1B4332]/20">
-            <div style={{ width: `${bankingPct}%` }} className="bg-rose-800 transition-all duration-500" />
-            <div style={{ width: `${utilityPct}%` }} className="bg-amber-600 transition-all duration-500" />
-            <div style={{ width: `${rewardPct}%` }} className="bg-[#1B4332] transition-all duration-500" />
+          <div className="h-3 w-full bg-[#0D1F18] rounded-full overflow-hidden flex border border-[#1B4332]">
+            <div style={{ width: '45%' }} className="bg-rose-600 transition-all duration-500" />
+            <div style={{ width: '35%' }} className="bg-amber-500 transition-all duration-500" />
+            <div style={{ width: '20%' }} className="bg-emerald-500 transition-all duration-500" />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-            <div className="flex items-center gap-2 bg-[#FAF8F5] p-2.5 rounded-xl border border-[#1B4332]/15">
-              <div className="p-1.5 rounded-lg bg-rose-100 text-rose-800 border border-rose-300">
+            <div className="flex items-center gap-2 bg-[#0D1F18] p-2.5 rounded-xl border border-[#1B4332]">
+              <div className="p-1.5 rounded-lg bg-rose-950 text-rose-400 border border-rose-800">
                 <Building2 className="w-4 h-4" />
               </div>
               <div>
-                <span className="text-[10px] text-[#1B4332]/70 block font-medium">Banking &amp; KYC Spoofing</span>
-                <span className="text-xs font-bold text-[#081510]">{bankingPct}%</span>
+                <span className="text-[10px] text-slate-400 block font-medium">Banking &amp; KYC Spoofing</span>
+                <span className="text-xs font-bold text-white">45%</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 bg-[#FAF8F5] p-2.5 rounded-xl border border-[#1B4332]/15">
-              <div className="p-1.5 rounded-lg bg-amber-100 text-amber-800 border border-amber-300">
+            <div className="flex items-center gap-2 bg-[#0D1F18] p-2.5 rounded-xl border border-[#1B4332]">
+              <div className="p-1.5 rounded-lg bg-amber-950 text-amber-400 border border-amber-800">
                 <Zap className="w-4 h-4" />
               </div>
               <div>
-                <span className="text-[10px] text-[#1B4332]/70 block font-medium">Electricity &amp; Utilities</span>
-                <span className="text-xs font-bold text-[#081510]">{utilityPct}%</span>
+                <span className="text-[10px] text-slate-400 block font-medium">Electricity &amp; Utilities</span>
+                <span className="text-xs font-bold text-white">35%</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 bg-[#FAF8F5] p-2.5 rounded-xl border border-[#1B4332]/15">
-              <div className="p-1.5 rounded-lg bg-[#1B4332]/10 text-[#1B4332] border border-[#1B4332]/20">
+            <div className="flex items-center gap-2 bg-[#0D1F18] p-2.5 rounded-xl border border-[#1B4332]">
+              <div className="p-1.5 rounded-lg bg-emerald-950 text-emerald-400 border border-emerald-800">
                 <KeyRound className="w-4 h-4" />
               </div>
               <div>
-                <span className="text-[10px] text-[#1B4332]/70 block font-medium">Rewards &amp; Lottery Scams</span>
-                <span className="text-xs font-bold text-[#081510]">{rewardPct}%</span>
+                <span className="text-[10px] text-slate-400 block font-medium">Rewards &amp; Lottery Scams</span>
+                <span className="text-xs font-bold text-white">20%</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Live Intercept Table */}
-        <div className="bg-white border border-[#1B4332]/15 rounded-2xl p-5 shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-sm font-bold text-[#081510] flex items-center gap-2">
-              <Database className="w-4 h-4 text-[#1B4332]" />
-              Live Intercept Telemetry Feed (Threats Only)
-            </h2>
-            <span className="text-xs text-[#2D6A4F] font-medium flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#2D6A4F] animate-pulse"></span>
-              Listening for smishing triggers...
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <div className="relative w-72">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#1B4332]/50" />
-              <input
-                type="text"
-                placeholder="Search Incident ID, Header, or URL..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-[#FAF8F5] border border-[#1B4332]/20 rounded-xl pl-9 pr-3 py-1.5 text-xs text-[#081510] focus:outline-none focus:border-[#1B4332]"
-              />
-            </div>
-
-            <div className="flex items-center gap-1.5 bg-[#FAF8F5] p-1 rounded-xl border border-[#1B4332]/15 text-xs">
-              <Filter className="w-3.5 h-3.5 text-[#1B4332]/50 ml-2" />
-              {(['ALL', 'CRITICAL', 'BANKING', 'UTILITY'] as const).map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setFilterCategory(cat)}
-                  className={`px-3 py-1 rounded-lg font-semibold transition ${
-                    filterCategory === cat
-                      ? 'bg-[#1B4332] text-white'
-                      : 'text-[#1B4332]/70 hover:text-[#081510]'
-                  }`}
-                >
-                  {cat === 'ALL'
-                    ? 'ALL ACTIVE THREATS'
-                    : cat === 'CRITICAL'
-                    ? 'CRITICAL (>=75%)'
-                    : cat === 'BANKING'
-                    ? 'BANKING / KYC'
-                    : 'UTILITY SPOOFING'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Table / List Container */}
-          <div className="space-y-2.5">
-            {filteredLogs.length === 0 ? (
-              <div className="py-12 text-center bg-[#FAF8F5] border border-dashed border-[#1B4332]/20 rounded-xl space-y-2">
-                <AlertTriangle className="w-8 h-8 text-[#1B4332]/40 mx-auto" />
-                <p className="text-xs font-semibold text-[#081510]">
-                  No matching malicious signatures detected across active intercept streams.
-                </p>
-                <p className="text-[11px] text-[#1B4332]/60">
-                  Non-threat SMS messages are automatically suppressed for citizen privacy.
+        {/* Telecom Operator & Gateway Synchronization Hub */}
+        <div className="bg-[#142820]/90 border border-[#1B4332] rounded-2xl p-6 shadow-sm space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#1B4332]">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-emerald-950 text-emerald-400 border border-emerald-800">
+                <Radio className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-white">TRAI &amp; Telecom Operator Gateway Synchronization</h2>
+                <p className="text-xs text-slate-300">
+                  Enforce header blacklisting and instant SMS block rule-pushes across major telecom providers (Jio, Airtel, Vi, BSNL).
                 </p>
               </div>
-            ) : (
-              filteredLogs.map((log) => {
-                const isCritical = log.riskScore >= 75;
-                const isTakedownDone = takedowns[log.id];
+            </div>
 
-                // Extract malicious URL pattern if present
-                const extractedUrlMatch = log.message.match(/https?:\/\/[^\s]+/i);
-                const extractedUrl = extractedUrlMatch ? extractedUrlMatch[0] : null;
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleGatewaySync}
+                disabled={syncStatus === 'SYNCING'}
+                className={`text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center gap-2 border ${
+                  syncStatus === 'SYNCED'
+                    ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500'
+                }`}
+              >
+                {syncStatus === 'SYNCING' ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Syncing Gateways...</span>
+                  </>
+                ) : syncStatus === 'SYNCED' ? (
+                  <>
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>Gateways Synchronized</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Force Operator Sync</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
 
-                return (
-                  <div
-                    key={log.id}
-                    className="flex flex-col md:flex-row md:items-center justify-between bg-[#FAF8F5] border border-[#1B4332]/15 p-4 rounded-xl hover:border-[#1B4332]/40 transition gap-3"
-                  >
-                    <div className="flex items-start gap-3.5">
-                      <div className="flex flex-col items-center justify-center gap-1">
-                        <span
-                          className={`px-2.5 py-1 rounded-md text-[11px] font-black font-mono border ${
-                            isCritical
-                              ? 'bg-rose-100 text-rose-900 border-rose-300'
-                              : 'bg-amber-100 text-amber-900 border-amber-300'
-                          }`}
-                        >
-                          {log.riskScore}%
-                        </span>
-                        <span className="text-[9px] font-mono text-[#1B4332]/60 font-bold">{log.id}</span>
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-[#081510] font-mono">{log.sender}</span>
-                          <span className="text-[10px] text-[#1B4332]/60">&bull; {log.timestamp}</span>
-                          <span
-                            className={`text-[9px] font-semibold px-2 py-0.5 rounded ${
-                              isCritical ? 'bg-rose-900 text-white' : 'bg-amber-700 text-white'
-                            }`}
-                          >
-                            {log.status}
-                          </span>
-                        </div>
-                        
-                        <p className="text-xs text-[#081510] leading-relaxed max-w-2xl font-medium">
-                          {log.message}
-                        </p>
-
-                        {extractedUrl && (
-                          <div className="flex items-center gap-1 text-[11px] font-mono text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 w-fit">
-                            <span>Suspect Payload URL:</span>
-                            <span className="font-bold underline">{extractedUrl}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-end md:justify-center">
-                      <button
-                        onClick={() => handleTakedown(log.id)}
-                        disabled={isTakedownDone}
-                        className={`text-xs px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-2 border ${
-                          isTakedownDone
-                            ? 'bg-emerald-800 text-white border-emerald-900 cursor-default'
-                            : 'bg-[#1B4332] hover:bg-[#2D6A4F] text-[#FAF8F5] border-[#1B4332]'
-                        }`}
-                      >
-                        {isTakedownDone ? (
-                          <>
-                            <CheckCircle2 className="w-4 h-4 text-emerald-300" />
-                            <span>CERT-In Freezed &amp; Logged</span>
-                          </>
-                        ) : (
-                          <>
-                            <Lock className="w-3.5 h-3.5" />
-                            <span>Dispatch Section 79(3)(b) Notice</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="bg-[#0D1F18] p-3 rounded-xl border border-[#1B4332] flex items-center justify-between">
+              <span className="text-slate-300 font-medium">Jio Gateway</span>
+              <span className="text-emerald-400 font-bold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Connected
+              </span>
+            </div>
+            <div className="bg-[#0D1F18] p-3 rounded-xl border border-[#1B4332] flex items-center justify-between">
+              <span className="text-slate-300 font-medium">Airtel MSC</span>
+              <span className="text-emerald-400 font-bold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Connected
+              </span>
+            </div>
+            <div className="bg-[#0D1F18] p-3 rounded-xl border border-[#1B4332] flex items-center justify-between">
+              <span className="text-slate-300 font-medium">Vi Enterprise</span>
+              <span className="text-emerald-400 font-bold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Connected
+              </span>
+            </div>
+            <div className="bg-[#0D1F18] p-3 rounded-xl border border-[#1B4332] flex items-center justify-between">
+              <span className="text-slate-300 font-medium">BSNL Routing</span>
+              <span className="text-emerald-400 font-bold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Connected
+              </span>
+            </div>
           </div>
         </div>
       </main>
