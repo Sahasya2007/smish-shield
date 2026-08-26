@@ -18,3 +18,21 @@ export interface NationalThreatStats {
   activeScamCampaigns: number;
   recentThreats: ScannedMessage[];
 }
+
+export interface ThreatBadgeProps {
+  threatLevel: ThreatLevel;
+  riskScore: number;
+}
+
+export interface NOCMetricsData {
+  systemUptime: string;
+  activeNodes: number;
+  apiLatencyMs: number;
+  packetLossPercentage: number;
+}
+
+export interface NavbarProps {
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+  systemStatus?: 'SECURE' | 'ELEVATED' | 'CRITICAL';
+}
