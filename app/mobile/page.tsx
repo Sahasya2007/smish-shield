@@ -109,7 +109,6 @@ export default function MobileSimulator() {
     handleRunScan(customObj.text, customObj.sender);
   };
 
-  // Action Handlers
   const handleQuarantineAction = () => {
     setIsQuarantined(true);
     showToast('Payload successfully isolated & quarantined in local vault.');
@@ -127,7 +126,6 @@ export default function MobileSimulator() {
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-[#081510] font-sans p-4 sm:p-8 relative">
       
-      {/* Floating Notification Toast */}
       {toastMessage && (
         <div className="fixed top-6 right-6 z-50 bg-[#142820] text-[#FAF8F5] border border-[#52B788]/40 shadow-2xl px-4 py-3 rounded-xl flex items-center gap-3 animate-fade-in text-xs font-mono">
           <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -137,7 +135,7 @@ export default function MobileSimulator() {
 
       <div className="max-w-6xl mx-auto space-y-6">
         
-        {/* Header Controller Bar with Logo */}
+        {/* Header Controller Bar */}
         <div className="bg-[#142820] text-[#FAF8F5] rounded-2xl p-6 border border-[#1B4332]/40 shadow-lg flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <svg className="w-10 h-10 shrink-0 shadow-md rounded-xl" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -216,7 +214,6 @@ export default function MobileSimulator() {
                 ))}
               </div>
 
-              {/* Custom Payload Form */}
               <form onSubmit={handleCustomSubmit} className="pt-3 border-t border-neutral-100 space-y-3">
                 <span className="text-xs font-bold text-[#1B4332] block">Test Custom SMS Payload:</span>
                 <input
@@ -254,102 +251,95 @@ export default function MobileSimulator() {
             </div>
           </div>
 
-          {/* Right Column: Native Phone Shell & Byte Inspector HUD */}
+          {/* Right Column: Native Phone Shell matching exact vector height */}
           <div className="lg:col-span-7 flex flex-col items-center">
             
             {activeTab === 'intercept' ? (
-              <div className="w-[340px] max-h-[85vh] bg-[#081510] rounded-[44px] p-3 shadow-2xl border-4 border-[#2D6A4F]/40 relative flex flex-col overflow-hidden">
+              <div className="w-[350px] h-[570px] bg-[#081510] rounded-[36px] p-3 shadow-2xl border-4 border-[#2D6A4F]/40 relative flex flex-col overflow-hidden">
                 
-                {/* Speaker Notch */}
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-5 bg-black rounded-b-2xl z-20 flex items-center justify-center">
-                  <div className="w-12 h-1 bg-neutral-800 rounded-full"></div>
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-28 h-4 bg-black rounded-b-xl z-20 flex items-center justify-center">
+                  <div className="w-10 h-0.5 bg-neutral-800 rounded-full"></div>
                 </div>
 
-                {/* Status Bar */}
-                <div className="pt-3 px-4 flex justify-between items-center text-white text-[10px] font-mono z-10">
+                <div className="pt-2 px-3 flex justify-between items-center text-white text-[9px] font-mono z-10">
                   <span>09:41</span>
-                  <div className="flex items-center gap-1.5">
-                    <Radio className="w-3 h-3 text-[#2D6A4F]" />
-                    <Wifi className="w-3 h-3" />
-                    <Battery className="w-3 h-3" />
+                  <div className="flex items-center gap-1">
+                    <Radio className="w-2.5 h-2.5 text-[#2D6A4F]" />
+                    <Wifi className="w-2.5 h-2.5" />
+                    <Battery className="w-2.5 h-2.5" />
                   </div>
                 </div>
 
-                {/* Native SMS Header */}
-                <div className="mt-4 px-3 py-2 bg-[#1B4332]/90 backdrop-blur-md rounded-t-xl border-b border-[#2D6A4F]/40 flex items-center justify-between text-white">
+                <div className="mt-3 px-3 py-1.5 bg-[#1B4332]/90 backdrop-blur-md rounded-t-lg border-b border-[#2D6A4F]/40 flex items-center justify-between text-white">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-[#2D6A4F] flex items-center justify-center font-bold text-xs">
+                    <div className="w-7 h-7 rounded-full bg-[#2D6A4F] flex items-center justify-center font-bold text-[10px]">
                       {selectedMessage.sender.slice(0, 2)}
                     </div>
                     <div>
-                      <p className="text-xs font-bold leading-tight">{selectedMessage.sender}</p>
-                      <p className="text-[9px] text-[#FAF8F5]/70">Encrypted DLT Channel</p>
+                      <p className="text-[11px] font-bold leading-tight">{selectedMessage.sender}</p>
+                      <p className="text-[8px] text-[#FAF8F5]/70">Encrypted DLT Channel</p>
                     </div>
                   </div>
-                  <ShieldAlert className="w-4 h-4 text-amber-400 animate-pulse" />
+                  <ShieldAlert className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
                 </div>
 
-                {/* Message Body Area */}
-                <div className="flex-1 bg-[#FAF8F5] p-3 overflow-y-auto flex flex-col gap-3">
-                  <div className="text-center my-1">
-                    <span className="text-[9px] bg-neutral-200 text-neutral-600 px-2.5 py-0.5 rounded-full font-mono">Today 09:41 AM</span>
+                <div className="flex-1 bg-[#FAF8F5] p-2.5 overflow-y-auto flex flex-col gap-2">
+                  <div className="text-center my-0.5">
+                    <span className="text-[8px] bg-neutral-200 text-neutral-600 px-2 py-0.5 rounded-full font-mono">Today 09:41 AM</span>
                   </div>
 
-                  {/* Incoming Message Bubble */}
-                  <div className={`max-w-[90%] bg-white rounded-2xl rounded-tl-sm p-3.5 shadow-sm border transition-all ${isQuarantined ? 'opacity-40 border-dashed border-neutral-400' : 'border-neutral-200'} relative`}>
-                    <p className="text-xs text-[#081510] leading-relaxed font-medium">
+                  <div className={`max-w-[90%] bg-white rounded-xl rounded-tl-sm p-3 shadow-sm border transition-all ${isQuarantined ? 'opacity-40 border-dashed border-neutral-400' : 'border-neutral-200'} relative`}>
+                    <p className="text-[11px] text-[#081510] leading-relaxed font-medium">
                       {isQuarantined ? '[QUARANTINED &amp; SANITIZED BY SMISHSHIELD]' : selectedMessage.text}
                     </p>
-                    <span className="text-[9px] text-neutral-400 block text-right mt-1.5 font-mono">09:41 AM</span>
+                    <span className="text-[8px] text-neutral-400 block text-right mt-1 font-mono">09:41 AM</span>
                   </div>
 
-                  {/* Inline Warning Banner */}
-                  <div className={`w-full rounded-xl p-3 shadow-sm border transition-all animate-fade-in ${
+                  <div className={`w-full rounded-xl p-2.5 shadow-sm border transition-all animate-fade-in ${
                     isQuarantined 
                       ? 'bg-neutral-100 border-neutral-300 text-neutral-600'
                       : isCritical 
                         ? 'bg-rose-50 border-rose-300 text-rose-950' 
                         : 'bg-amber-50 border-amber-300 text-amber-950'
                   }`}>
-                    <div className="flex items-start gap-2.5">
-                      <div className={`p-1.5 rounded-lg mt-0.5 text-white ${isQuarantined ? 'bg-neutral-500' : isCritical ? 'bg-rose-700' : 'bg-amber-700'}`}>
-                        <ShieldAlert className="w-4 h-4" />
+                    <div className="flex items-start gap-2">
+                      <div className={`p-1 rounded-lg mt-0.5 text-white ${isQuarantined ? 'bg-neutral-500' : isCritical ? 'bg-rose-700' : 'bg-amber-700'}`}>
+                        <ShieldAlert className="w-3.5 h-3.5" />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <p className="text-xs font-black">
+                          <p className="text-[11px] font-black">
                             {isQuarantined ? 'Payload Quarantined' : 'Blocked by SmishShield'}
                           </p>
-                          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                          <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
                             isQuarantined ? 'bg-neutral-200 text-neutral-800' : isCritical ? 'bg-rose-200 text-rose-900' : 'bg-amber-200 text-amber-900'
                           }`}>
                             {scanResult.riskScore}% Risk
                           </span>
                         </div>
-                        <p className="text-[11px] mt-1 opacity-90 leading-snug">
+                        <p className="text-[10px] mt-0.5 opacity-90 leading-snug">
                           {isQuarantined ? 'Content neutralized successfully. No links accessible.' : `${scanResult.status}: Malicious payload quarantine triggered.`}
                         </p>
                       </div>
                     </div>
 
-                    {/* Action Strip */}
-                    <div className="mt-3 grid grid-cols-3 gap-1.5 pt-2.5 border-t border-current/20">
+                    <div className="mt-2 grid grid-cols-3 gap-1 pt-2 border-t border-current/20">
                       <button 
                         onClick={handleQuarantineAction}
                         disabled={isQuarantined}
-                        className="bg-white hover:bg-neutral-100 disabled:opacity-50 text-[9px] font-bold py-1 px-1 rounded border border-current/20 text-center transition"
+                        className="bg-white hover:bg-neutral-100 disabled:opacity-50 text-[8px] font-bold py-1 px-0.5 rounded border border-current/20 text-center transition"
                       >
                         {isQuarantined ? 'Quarantined' : 'Quarantine'}
                       </button>
                       <button 
                         onClick={handleReport1930Action}
-                        className="bg-white hover:bg-neutral-100 text-[9px] font-bold py-1 px-1 rounded border border-current/20 text-center transition"
+                        className="bg-white hover:bg-neutral-100 text-[8px] font-bold py-1 px-0.5 rounded border border-current/20 text-center transition"
                       >
                         Report 1930
                       </button>
                       <button 
                         onClick={() => setActiveTab('inspector')} 
-                        className={`text-white text-[9px] font-bold py-1 px-1 rounded text-center transition flex items-center justify-center gap-0.5 ${
+                        className={`text-white text-[8px] font-bold py-1 px-0.5 rounded text-center transition flex items-center justify-center gap-0.5 ${
                           isCritical ? 'bg-rose-800 hover:bg-rose-900' : 'bg-amber-800 hover:bg-amber-900'
                         }`}
                       >
@@ -360,14 +350,12 @@ export default function MobileSimulator() {
 
                 </div>
 
-                {/* Home Indicator */}
-                <div className="py-2.5 bg-[#081510] text-center">
-                  <div className="w-28 h-1 bg-white/30 rounded-full mx-auto"></div>
+                <div className="py-2 bg-[#081510] text-center">
+                  <div className="w-24 h-1 bg-white/30 rounded-full mx-auto"></div>
                 </div>
 
               </div>
             ) : (
-              /* Byte Inspector HUD View */
               <div className="w-full bg-white p-6 rounded-2xl border border-[#1B4332]/20 shadow-sm space-y-5">
                 <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
                   <div className="flex items-center gap-2">
@@ -394,7 +382,6 @@ export default function MobileSimulator() {
                   </div>
                 </div>
 
-                {/* Reasons List */}
                 <div className="space-y-2">
                   <span className="text-xs font-bold text-[#1B4332]">Heuristic Analysis Breakdown:</span>
                   <div className="bg-[#081510] text-emerald-400 font-mono text-xs p-4 rounded-xl space-y-2">
