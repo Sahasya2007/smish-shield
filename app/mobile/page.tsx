@@ -20,9 +20,7 @@ import {
   FileText,
   Share2,
   Copy,
-  MessageSquarePlus,
-  ChevronDown,
-  ChevronUp
+  MessageSquarePlus
 } from 'lucide-react';
 import { scanMessageOnDevice } from './scanner';
 import { broadcastThreatLog, ThreatStatus } from '../dashboard/telemetry';
@@ -54,13 +52,13 @@ const PRESET_MESSAGES = [
 ];
 
 export default function MobileSimulator() {
+  const [activeTab, setActiveTab] = useState<'intercept' | 'inspector'>('intercept');
   const [selectedMessage, setSelectedMessage] = useState(PRESET_MESSAGES[0]);
   const [customText, setCustomText] = useState('');
   const [customSender, setCustomSender] = useState('AD-BANKALERT');
   const [isQuarantined, setIsQuarantined] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [showInMobileInspector, setShowInMobileInspector] = useState(false);
 
   const [scanResult, setScanResult] = useState<ExtendedScanHUD>({
     riskScore: 92,
@@ -82,7 +80,6 @@ export default function MobileSimulator() {
   const handleRunScan = (textToScan: string, senderHeader: string) => {
     setIsScanning(true);
     setIsQuarantined(false);
-    setShowInMobileInspector(false);
 
     try {
       const result = scanMessageOnDevice(textToScan);
@@ -155,6 +152,7 @@ export default function MobileSimulator() {
     }, 800);
   };
 
+  // Interactive Action Handlers
   const handleFalsePositive = () => {
     showToast('Marked as False Positive. Heuristic whitelist updated.');
   };
@@ -164,8 +162,8 @@ export default function MobileSimulator() {
   };
 
   const handleViewRawHeaders = () => {
-    setShowInMobileInspector(true);
-    showToast('Loaded heuristic breakdown inside mobile view.');
+    setActiveTab('inspector');
+    showToast('Loaded raw payload bytes into Byte Inspector.');
   };
 
   const handleShareIoC = () => {
@@ -225,6 +223,29 @@ export default function MobileSimulator() {
                 SmishShield Mobile Client Simulator
               </h1>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2 bg-[#0D1F18] p-1.5 rounded-xl border border-[#2D6A4F]/40">
+            <button
+              onClick={() => setActiveTab('intercept')}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
+                activeTab === 'intercept'
+                  ? 'bg-[#1B4332] text-white shadow'
+                  : 'text-[#FAF8F5]/70 hover:text-white'
+              }`}
+            >
+              Native SMS View
+            </button>
+            <button
+              onClick={() => setActiveTab('inspector')}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
+                activeTab === 'inspector'
+                  ? 'bg-[#1B4332] text-white shadow'
+                  : 'text-[#FAF8F5]/70 hover:text-white'
+              }`}
+            >
+              Byte Inspector HUD
+            </button>
           </div>
         </div>
 
@@ -296,189 +317,218 @@ export default function MobileSimulator() {
 
           <div className="lg:col-span-7 flex flex-col items-center">
             
-            <div className="w-[350px] min-h-[570px] bg-[#081510] rounded-[36px] p-3 shadow-2xl border-4 border-[#2D6A4F]/40 relative flex flex-col overflow-hidden">
-              
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-28 h-4 bg-black rounded-b-xl z-20 flex items-center justify-center">
-                <div className="w-10 h-0.5 bg-neutral-800 rounded-full"></div>
-              </div>
-
-              <div className="pt-2 px-3 flex justify-between items-center text-white text-[9px] font-mono z-10">
-                <span>09:41</span>
-                <div className="flex items-center gap-1">
-                  <Radio className="w-2.5 h-2.5 text-[#2D6A4F]" />
-                  <Wifi className="w-2.5 h-2.5" />
-                  <Battery className="w-2.5 h-2.5" />
+            {activeTab === 'intercept' ? (
+              <div className="w-[350px] h-[570px] bg-[#081510] rounded-[36px] p-3 shadow-2xl border-4 border-[#2D6A4F]/40 relative flex flex-col overflow-hidden">
+                
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-28 h-4 bg-black rounded-b-xl z-20 flex items-center justify-center">
+                  <div className="w-10 h-0.5 bg-neutral-800 rounded-full"></div>
                 </div>
-              </div>
 
-              <div className="mt-3 px-3 py-1.5 bg-[#1B4332]/95 backdrop-blur-md rounded-t-lg border-b border-[#2D6A4F]/40 flex items-center justify-between text-white">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 rounded-full bg-[#2D6A4F] flex items-center justify-center font-bold text-[10px] shrink-0">
-                    {selectedMessage.sender.slice(0, 2)}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-bold leading-tight truncate">{selectedMessage.sender}</p>
-                    <p className="text-[8px] text-[#FAF8F5]/70 truncate">Encrypted DLT Channel</p>
+                <div className="pt-2 px-3 flex justify-between items-center text-white text-[9px] font-mono z-10">
+                  <span>09:41</span>
+                  <div className="flex items-center gap-1">
+                    <Radio className="w-2.5 h-2.5 text-[#2D6A4F]" />
+                    <Wifi className="w-2.5 h-2.5" />
+                    <Battery className="w-2.5 h-2.5" />
                   </div>
                 </div>
-                <ShieldAlert className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0 ml-2" />
-              </div>
 
-              <div className="flex-1 bg-[#FAF8F5] p-2.5 overflow-y-auto flex flex-col gap-2 min-w-0">
-                <div className="text-center my-0.5">
-                  <span className="text-[8px] bg-neutral-200 text-neutral-600 px-2 py-0.5 rounded-full font-mono">Today 09:41 AM</span>
-                </div>
-
-                <div className={`max-w-[90%] bg-white rounded-xl rounded-tl-sm p-3 shadow-sm border transition-all ${isQuarantined ? 'opacity-40 border-dashed border-neutral-400' : 'border-neutral-200'} relative`}>
-                  <p className="text-[11px] text-[#081510] leading-relaxed font-medium break-words">
-                    {isQuarantined ? '[QUARANTINED & SANITIZED BY SMISHSHIELD]' : selectedMessage.text}
-                  </p>
-                  <span className="text-[8px] text-neutral-400 block text-right mt-1 font-mono">09:41 AM</span>
-                </div>
-
-                <div className={`w-full rounded-xl p-2.5 shadow-sm border transition-all animate-fade-in min-w-0 ${
-                  isQuarantined 
-                    ? 'bg-neutral-100 border-neutral-300 text-neutral-600'
-                    : isCritical 
-                      ? 'bg-rose-50 border-rose-300 text-rose-950' 
-                      : 'bg-amber-50 border-amber-300 text-amber-950'
-                }`}>
-                  <div className="flex items-start gap-2">
-                    <div className={`p-1 rounded-lg mt-0.5 text-white shrink-0 ${isQuarantined ? 'bg-neutral-500' : isCritical ? 'bg-rose-700' : 'bg-amber-700'}`}>
-                      <ShieldAlert className="w-3.5 h-3.5" />
+                <div className="mt-3 px-3 py-1.5 bg-[#1B4332]/95 backdrop-blur-md rounded-t-lg border-b border-[#2D6A4F]/40 flex items-center justify-between text-white">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-[#2D6A4F] flex items-center justify-center font-bold text-[10px]">
+                      {selectedMessage.sender.slice(0, 2)}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <p className="text-[11px] font-black truncate">
-                          {isQuarantined ? 'Payload Quarantined' : 'Blocked by SmishShield'}
+                    <div>
+                      <p className="text-[11px] font-bold leading-tight">{selectedMessage.sender}</p>
+                      <p className="text-[8px] text-[#FAF8F5]/70">Encrypted DLT Channel</p>
+                    </div>
+                  </div>
+                  <ShieldAlert className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                </div>
+
+                <div className="flex-1 bg-[#FAF8F5] p-2.5 overflow-y-auto flex flex-col gap-2">
+                  <div className="text-center my-0.5">
+                    <span className="text-[8px] bg-neutral-200 text-neutral-600 px-2 py-0.5 rounded-full font-mono">Today 09:41 AM</span>
+                  </div>
+
+                  <div className={`max-w-[90%] bg-white rounded-xl rounded-tl-sm p-3 shadow-sm border transition-all ${isQuarantined ? 'opacity-40 border-dashed border-neutral-400' : 'border-neutral-200'} relative`}>
+                    <p className="text-[11px] text-[#081510] leading-relaxed font-medium">
+                      {isQuarantined ? '[QUARANTINED & SANITIZED BY SMISHSHIELD]' : selectedMessage.text}
+                    </p>
+                    <span className="text-[8px] text-neutral-400 block text-right mt-1 font-mono">09:41 AM</span>
+                  </div>
+
+                  <div className={`w-full rounded-xl p-2.5 shadow-sm border transition-all animate-fade-in ${
+                    isQuarantined 
+                      ? 'bg-neutral-100 border-neutral-300 text-neutral-600'
+                      : isCritical 
+                        ? 'bg-rose-50 border-rose-300 text-rose-950' 
+                        : 'bg-amber-50 border-amber-300 text-amber-950'
+                  }`}>
+                    <div className="flex items-start gap-2">
+                      <div className={`p-1 rounded-lg mt-0.5 text-white ${isQuarantined ? 'bg-neutral-500' : isCritical ? 'bg-rose-700' : 'bg-amber-700'}`}>
+                        <ShieldAlert className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[11px] font-black">
+                            {isQuarantined ? 'Payload Quarantined' : 'Blocked by SmishShield'}
+                          </p>
+                          <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                            isQuarantined ? 'bg-neutral-200 text-neutral-800' : isCritical ? 'bg-rose-200 text-rose-900' : 'bg-amber-200 text-amber-900'
+                          }`}>
+                            {scanResult.riskScore}% Risk
+                          </span>
+                        </div>
+                        <p className="text-[10px] mt-0.5 opacity-90 leading-snug">
+                          {isQuarantined ? 'Content neutralized successfully. No links accessible.' : `${scanResult.status}: Malicious payload quarantine triggered.`}
                         </p>
-                        <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${
-                          isQuarantined ? 'bg-neutral-200 text-neutral-800' : isCritical ? 'bg-rose-200 text-rose-900' : 'bg-amber-200 text-amber-900'
-                        }`}>
-                          {scanResult.riskScore}% Risk
-                        </span>
                       </div>
-                      <p className="text-[10px] mt-0.5 opacity-90 leading-snug break-words">
-                        {isQuarantined ? 'Content neutralized successfully. No links accessible.' : `${scanResult.status}: Malicious payload quarantine triggered.`}
+                    </div>
+
+                    <div className="mt-2 grid grid-cols-3 gap-1 pt-2 border-t border-current/20">
+                      <button 
+                        onClick={handleQuarantineAction}
+                        disabled={isQuarantined}
+                        className="bg-white hover:bg-neutral-100 disabled:opacity-50 text-[8px] font-bold py-1 px-0.5 rounded border border-current/20 text-center transition"
+                      >
+                        {isQuarantined ? 'Quarantined' : 'Quarantine'}
+                      </button>
+                      <button 
+                        onClick={handleReport1930Action}
+                        className="bg-white hover:bg-neutral-100 text-[8px] font-bold py-1 px-0.5 rounded border border-current/20 text-center transition"
+                      >
+                        Report 1930
+                      </button>
+                      <button 
+                        onClick={() => setActiveTab('inspector')} 
+                        className={`text-white text-[8px] font-bold py-1 px-0.5 rounded text-center transition flex items-center justify-center gap-0.5 ${
+                          isCritical ? 'bg-rose-800 hover:bg-rose-900' : 'bg-amber-800 hover:bg-amber-900'
+                        }`}
+                      >
+                        Inspect <ArrowRight className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Comprehensive Interactive Options Box */}
+                  <div className="mt-1 bg-white border border-neutral-200 rounded-xl p-2.5 shadow-sm space-y-2 animate-fade-in">
+                    <div className="flex items-center justify-between px-0.5">
+                      <p className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider">Quick Actions &amp; Overrides</p>
+                      <span className="text-[8px] font-mono text-[#2D6A4F] bg-[#1B4332]/10 px-1.5 py-0.5 rounded">Active Sandbox</span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button
+                        onClick={handleFalsePositive}
+                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs"
+                      >
+                        <ShieldOff className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>False Positive</span>
+                      </button>
+                      <button
+                        onClick={handleBlockSender}
+                        className="bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs"
+                      >
+                        <UserX className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Block Sender</span>
+                      </button>
+                      <button
+                        onClick={handleViewRawHeaders}
+                        className="bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-sky-600" />
+                        <span>Raw Headers</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-neutral-100">
+                      <button
+                        onClick={handleShareIoC}
+                        className="bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs"
+                      >
+                        <Share2 className="w-3.5 h-3.5 text-purple-600" />
+                        <span>Share IoC</span>
+                      </button>
+                      <button
+                        onClick={handleCopyPayload}
+                        className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs"
+                      >
+                        <Copy className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Copy Text</span>
+                      </button>
+                      <button
+                        onClick={handleSimulateFollowUp}
+                        className="bg-neutral-900 hover:bg-neutral-800 text-white border border-neutral-700 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs"
+                      >
+                        <MessageSquarePlus className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Follow-up SMS</span>
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+
+                <div className="py-2 bg-[#081510] text-center">
+                  <div className="w-24 h-1 bg-white/30 rounded-full mx-auto"></div>
+                </div>
+
+              </div>
+            ) : (
+              <div className="w-full bg-white p-6 rounded-2xl border border-[#1B4332]/20 shadow-sm space-y-5 animate-fade-in">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
+                  <div className="flex items-center gap-2">
+                    <Terminal className="w-5 h-5 text-[#2D6A4F]" />
+                    <h3 className="text-sm font-bold text-[#1B4332]">Real-Time Heuristic Packet &amp; Domain Inspector</h3>
+                  </div>
+                  <span className="text-[10px] bg-rose-100 text-rose-800 font-bold px-2.5 py-1 rounded-full font-mono uppercase">
+                    STATUS: {scanResult.status}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3.5 bg-[#FAF8F5] rounded-xl border border-[#1B4332]/10">
+                    <span className="text-[10px] text-neutral-500 block uppercase font-mono">DLT Header Status</span>
+                    <span className="text-xs font-bold text-rose-700 flex items-center gap-1 mt-1">
+                      <AlertTriangle className="w-4 h-4" /> {scanResult.dltHeader}
+                    </span>
+                  </div>
+                  <div className="p-3.5 bg-[#FAF8F5] rounded-xl border border-[#1B4332]/10">
+                    <span className="text-[10px] text-neutral-500 block uppercase font-mono">Domain Entropy</span>
+                    <span className="text-xs font-bold text-[#1B4332] flex items-center gap-1 mt-1">
+                      <Lock className="w-4 h-4 text-[#2D6A4F]" /> {scanResult.entropy}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-[#1B4332]">Heuristic Analysis Breakdown:</span>
+                  <div className="bg-[#081510] text-emerald-400 font-mono text-xs p-4 rounded-xl space-y-2">
+                    {scanResult.reasons.map((reason, idx) => (
+                      <p key={idx} className="flex items-start gap-2 leading-relaxed">
+                        <span className="text-emerald-500">&bull;</span> {reason}
                       </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-2 grid grid-cols-3 gap-1 pt-2 border-t border-current/20">
-                    <button 
-                      onClick={handleQuarantineAction}
-                      disabled={isQuarantined}
-                      className="bg-white hover:bg-neutral-100 disabled:opacity-50 text-[8px] font-bold py-1 px-0.5 rounded border border-current/20 text-center transition truncate"
-                    >
-                      {isQuarantined ? 'Quarantined' : 'Quarantine'}
-                    </button>
-                    <button 
-                      onClick={handleReport1930Action}
-                      className="bg-white hover:bg-neutral-100 text-[8px] font-bold py-1 px-0.5 rounded border border-current/20 text-center transition truncate"
-                    >
-                      Report 1930
-                    </button>
-                    <button 
-                      onClick={handleViewRawHeaders}
-                      className={`text-white text-[8px] font-bold py-1 px-1 rounded text-center transition flex items-center justify-center gap-0.5 shrink-0 ${
-                        isCritical ? 'bg-rose-800 hover:bg-rose-900' : 'bg-amber-800 hover:bg-amber-900'
-                      }`}
-                    >
-                      <span className="truncate">{showInMobileInspector ? 'Hide' : 'Inspect'}</span> 
-                      {showInMobileInspector ? <ChevronUp className="w-2.5 h-2.5 shrink-0" /> : <ChevronDown className="w-2.5 h-2.5 shrink-0" />}
-                    </button>
+                    ))}
+                    <p className="text-amber-400 pt-2 border-t border-emerald-900">
+                      <span className="text-neutral-500">[DISPATCH]</span> Section 79(3)(b) Telemetry packet synced to CERT-In Command Center.
+                    </p>
                   </div>
                 </div>
 
-                {showInMobileInspector && (
-                  <div className="bg-white border border-neutral-200 rounded-xl p-3 shadow-sm space-y-2.5 animate-fade-in text-[10px] text-[#081510]">
-                    <div className="flex items-center justify-between pb-1.5 border-b border-neutral-100 font-bold">
-                      <span className="flex items-center gap-1 text-[#1B4332]">
-                        <Terminal className="w-3 h-3 text-[#2D6A4F]" /> Heuristic Inspector HUD
-                      </span>
-                      <span className="text-rose-700 font-mono">{scanResult.status}</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1.5 font-mono">
-                      <div className="bg-[#FAF8F5] p-1.5 rounded border border-neutral-200">
-                        <span className="text-[8px] text-neutral-500 block">DLT Header:</span>
-                        <span className="font-bold text-rose-700 truncate block">{scanResult.dltHeader}</span>
-                      </div>
-                      <div className="bg-[#FAF8F5] p-1.5 rounded border border-neutral-200">
-                        <span className="text-[8px] text-neutral-500 block">Entropy:</span>
-                        <span className="font-bold text-[#1B4332] truncate block">{scanResult.entropy}</span>
-                      </div>
-                    </div>
-                    <div className="bg-[#081510] text-emerald-400 font-mono text-[9px] p-2 rounded space-y-1">
-                      {scanResult.reasons.map((reason, idx) => (
-                        <p key={idx} className="leading-tight">&bull; {reason}</p>
-                      ))}
-                    </div>
+                <div className="pt-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs text-[#2D6A4F] font-medium">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Synchronized with Central Dashboard Feed</span>
                   </div>
-                )}
-
-                {/* Comprehensive Interactive Options Box */}
-                <div className="mt-1 bg-white border border-neutral-200 rounded-xl p-2.5 shadow-sm space-y-2 animate-fade-in min-w-0">
-                  <div className="flex items-center justify-between px-0.5 gap-1">
-                    <p className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider truncate">Quick Actions &amp; Overrides</p>
-                    <span className="text-[8px] font-mono text-[#2D6A4F] bg-[#1B4332]/10 px-1.5 py-0.5 rounded shrink-0">Active Sandbox</span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <button
-                      onClick={handleFalsePositive}
-                      className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs text-center min-w-0"
-                    >
-                      <ShieldOff className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span className="truncate w-full">False Positive</span>
-                    </button>
-                    <button
-                      onClick={handleBlockSender}
-                      className="bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs text-center min-w-0"
-                    >
-                      <UserX className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                      <span className="truncate w-full">Block Sender</span>
-                    </button>
-                    <button
-                      onClick={handleViewRawHeaders}
-                      className="bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs text-center min-w-0"
-                    >
-                      <FileText className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                      <span className="truncate w-full">Raw Headers</span>
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-neutral-100">
-                    <button
-                      onClick={handleShareIoC}
-                      className="bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs text-center min-w-0"
-                    >
-                      <Share2 className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                      <span className="truncate w-full">Share IoC</span>
-                    </button>
-                    <button
-                      onClick={handleCopyPayload}
-                      className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs text-center min-w-0"
-                    >
-                      <Copy className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span className="truncate w-full">Copy Text</span>
-                    </button>
-                    <button
-                      onClick={handleSimulateFollowUp}
-                      className="bg-neutral-900 hover:bg-neutral-800 text-white border border-neutral-700 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition shadow-2xs text-center min-w-0"
-                    >
-                      <MessageSquarePlus className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span className="truncate w-full">Follow-up SMS</span>
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setActiveTab('intercept')}
+                    className="bg-[#1B4332] hover:bg-[#2D6A4F] text-white text-xs font-bold py-2 px-4 rounded-xl transition shadow-sm"
+                  >
+                    Back to Mobile View
+                  </button>
                 </div>
-
               </div>
-
-              <div className="py-2 bg-[#081510] text-center shrink-0">
-                <div className="w-24 h-1 bg-white/30 rounded-full mx-auto"></div>
-              </div>
-
-            </div>
+            )}
 
           </div>
 
