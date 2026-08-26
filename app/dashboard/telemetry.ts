@@ -1,67 +1,73 @@
+export type ThreatStatus = 'Critical Threat' | 'High Risk' | 'Medium Risk' | 'Safe';
+
 export interface ThreatLog {
   id: string;
   sender: string;
   message: string;
   riskScore: number;
-  status: 'Critical Threat' | 'High Risk' | 'Medium Risk' | 'Safe';
+  status: ThreatStatus;
   timestamp: string;
 }
 
-const STORAGE_KEY = 'smishshield_telemetry_intercepts';
-const TELEMETRY_EVENT = 'smishshield_threat_intercepted';
+const STORAGE_KEY = 'smishshield_logs';
+type LogListener = (log: ThreatLog) => void;
+const listeners: Set<LogListener> = new Set();
 
-/**
- * Retrieve stored logs from browser local storage
- */
-export const getStoredLogs = (): ThreatLog[] => {
+export function getStoredLogs(): ThreatLog[] {
   if (typeof window === 'undefined') return [];
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    
+    const parsed: ThreatLog[] = JSON.parse(raw);
+
+    // Automatically filter out duplicates from existing storage so you don't have to manually clear it
+    const uniqueLogs: ThreatLog[] = [];
+    const seenMessages = new Set<string>();
+
+    for (const log of parsed) {
+      if (!seenMessages.has(log.message)) {
+        seenMessages.add(log.message);
+        uniqueLogs.push(log);
+      }
+    }
+
+    // Save the cleaned version back to localStorage
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(uniqueLogs));
+    return uniqueLogs;
   } catch {
     return [];
   }
-};
+}
 
-/**
- * Save a new log locally
- */
-export const saveLog = (log: ThreatLog) => {
+export function saveLog(log: ThreatLog): void {
   if (typeof window === 'undefined') return;
-  try {
-    const existing = getStoredLogs();
-    const updated = [log, ...existing];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  } catch {
-    // Handle quota errors silently
+  const current = getStoredLogs();
+
+  // 1. Prevent consecutive duplicate
+  if (current.length > 0 && current[0].message === log.message) {
+    return;
   }
-};
 
-/**
- * Broadcast threat telemetry across components
- */
-export const broadcastThreatLog = (log: ThreatLog) => {
-  if (typeof window === 'undefined') return;
-  
-  saveLog(log);
+  // 2. Prevent duplicate message anywhere in storage
+  if (current.some((item) => item.message === log.message)) {
+    return;
+  }
 
-  const customEvent = new CustomEvent<ThreatLog>(TELEMETRY_EVENT, { detail: log });
-  window.dispatchEvent(customEvent);
-};
+  const updated = [log, ...current];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated.slice(0, 50)));
+}
 
-/**
- * Subscribe to real-time threat events in the dashboard
- */
-export const subscribeToLogs = (callback: (log: ThreatLog) => void) => {
-  if (typeof window === 'undefined') return () => {};
-
-  const handleCustomEvent = (e: Event) => {
-    const customEvent = e as CustomEvent<ThreatLog>;
-    if (customEvent.detail) {
-      callback(customEvent.detail);
-    }
+export function subscribeToLogs(listener: LogListener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
   };
+}
 
-  window.addEventListener(TELEMETRY_EVENT, handleCustomEvent);
-  return () => window.removeEventListener(TELEMETRY_EVENT, handleCustomEvent);
-};
+export function broadcastThreatLog(log: ThreatLog): void {
+  if (log.riskScore >= 45) {
+    saveLog(log);
+  }
+  listeners.forEach((listener) => listener(log));
+}
