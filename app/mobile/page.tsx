@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import { scanMessageOnDevice } from './scanner';
 import { broadcastThreatLog, ThreatStatus } from '../dashboard/telemetry';
-import { supabase } from '@/lib/supabase'; // Connected Supabase client
 
 interface ExtendedScanHUD {
   riskScore: number;
@@ -55,8 +54,8 @@ const PRESET_MESSAGES = [
 export default function MobileSimulator() {
   const [activeTab, setActiveTab] = useState<'intercept' | 'inspector'>('intercept');
   const [selectedMessage, setSelectedMessage] = useState(PRESET_MESSAGES[0]);
-  const [customText, setCustomText] = useState('');
-  const [customSender, setCustomSender] = useState('AD-BANKALERT');
+  const [customText, setCustomText] = useState(PRESET_MESSAGES[0].text);
+  const [customSender, setCustomSender] = useState(PRESET_MESSAGES[0].sender);
   const [isQuarantined, setIsQuarantined] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -78,62 +77,57 @@ export default function MobileSimulator() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  // Main scan execution function (Calls backend API & triggers cross-tab sync)
   const handleRunScan = async (textToScan: string, senderHeader: string) => {
+    if (!textToScan || !textToScan.trim()) return;
+
     setIsScanning(true);
     setIsQuarantined(false);
 
     try {
-      const result = scanMessageOnDevice(textToScan);
-
+      // 1. Local On-Device Scanner preview
+      const localResult = scanMessageOnDevice(textToScan);
+      
       const mappedStatus: ThreatStatus = 
-        result.riskScore >= 70 
+        localResult.riskScore >= 70 
           ? 'Critical Threat' 
-          : result.riskScore >= 35 
+          : localResult.riskScore >= 35 
           ? 'High Risk' 
           : 'Safe';
 
-      const hudData: ExtendedScanHUD = {
-        riskScore: result.riskScore,
+      setScanResult({
+        riskScore: localResult.riskScore,
         dltHeader: /^(AD|AX|VM|VK|BW|DM)-/i.test(senderHeader) ? 'FAIL (Spoofed / Unverified)' : 'VERIFIED TRAI DLT',
-        entropy: result.riskScore >= 70 ? '4.82 (High)' : result.riskScore >= 35 ? '3.14 (Moderate)' : '1.85 (Low)',
+        entropy: localResult.riskScore >= 70 ? '4.82 (High)' : localResult.riskScore >= 35 ? '3.14 (Moderate)' : '1.85 (Low)',
         status: mappedStatus,
-        reasons: result.reasons
-      };
+        reasons: localResult.reasons
+      });
 
-      setScanResult(hudData);
+      // 2. Call backend /api/scan to save to Supabase
+      const res = await fetch('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender: senderHeader,
+          rawText: textToScan
+        })
+      });
 
-      if (result.riskScore >= 45) {
-        // 1. Cross-tab Broadcast Channel
+      const data = await res.json();
+
+      // 3. Broadcast to open dashboard tabs
+      if (localResult.riskScore >= 45) {
         broadcastThreatLog({
-          id: `INC-${Math.floor(1000 + Math.random() * 9000)}`,
+          id: data.id || `INC-${Math.floor(1000 + Math.random() * 9000)}`,
           sender: senderHeader,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           message: textToScan,
-          riskScore: result.riskScore,
+          riskScore: localResult.riskScore,
           status: mappedStatus
         });
-
-        // 2. Persist directly to Supabase Database
-        if (supabase) {
-          const { error } = await supabase
-            .from('scanned_messages')
-            .insert([
-              {
-                sender: senderHeader,
-                text: textToScan,
-                risk_score: result.riskScore,
-                threat_type: mappedStatus,
-                created_at: new Date().toISOString()
-              }
-            ]);
-
-          if (error) {
-            console.error('Supabase write error:', error.message);
-          } else {
-            console.log('Successfully recorded threat incident in Supabase.');
-          }
-        }
       }
+
+      showToast('Payload analyzed & telemetry dispatched.');
     } catch (err) {
       console.error('Scan evaluation error:', err);
     } finally {
@@ -141,26 +135,28 @@ export default function MobileSimulator() {
     }
   };
 
-  useEffect(() => {
-    handleRunScan(selectedMessage.text, selectedMessage.sender);
-  }, []);
-
+  // Handle clicking a preset vector
   const handleSelectPreset = (msg: typeof PRESET_MESSAGES[0]) => {
     setSelectedMessage(msg);
-    setCustomText('');
+    setCustomText(msg.text);
+    setCustomSender(msg.sender);
     handleRunScan(msg.text, msg.sender);
   };
 
+  // Handle clicking the Inject & Scan Payload button
   const handleCustomSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customText.trim()) return;
+    const textToUse = customText.trim() || selectedMessage.text;
+    const senderToUse = customSender.trim() || selectedMessage.sender;
+
     const customObj = {
       id: `MSG-${Math.floor(1000 + Math.random() * 9000)}`,
-      sender: customSender || 'UNKNOWN-SMS',
-      text: customText
+      sender: senderToUse,
+      text: textToUse
     };
+
     setSelectedMessage(customObj);
-    handleRunScan(customObj.text, customObj.sender);
+    handleRunScan(textToUse, senderToUse);
   };
 
   const handleQuarantineAction = () => {
@@ -205,15 +201,14 @@ export default function MobileSimulator() {
       text: followUpText
     };
     setSelectedMessage(followUpObj);
+    setCustomText(followUpText);
     handleRunScan(followUpObj.text, followUpObj.sender);
-    showToast('Injected sequential attacker follow-up SMS vector.');
   };
 
   const isCritical = scanResult.riskScore >= 70;
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-[#081510] font-sans p-4 sm:p-8 relative">
-      
       {toastMessage && (
         <div className="fixed top-6 right-6 z-50 bg-[#142820] text-[#FAF8F5] border border-[#52B788]/40 shadow-2xl px-4 py-3 rounded-xl flex items-center gap-3 animate-fade-in text-xs font-mono">
           <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -222,7 +217,6 @@ export default function MobileSimulator() {
       )}
 
       <div className="max-w-6xl mx-auto space-y-6">
-        
         <div className="bg-[#142820] text-[#FAF8F5] rounded-2xl p-6 border border-[#1B4332]/40 shadow-lg flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <svg className="w-10 h-10 shrink-0 shadow-md rounded-xl" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -272,7 +266,6 @@ export default function MobileSimulator() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
           <div className="lg:col-span-5 space-y-4">
             <div className="bg-white border border-[#1B4332]/15 rounded-2xl p-5 shadow-sm space-y-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#1B4332] flex items-center gap-2">
@@ -319,12 +312,12 @@ export default function MobileSimulator() {
                 <button
                   type="submit"
                   disabled={isScanning}
-                  className="w-full bg-[#1B4332] hover:bg-[#2D6A4F] text-white text-xs font-bold py-2.5 px-4 rounded-xl transition shadow-sm flex items-center justify-center gap-2"
+                  className="w-full bg-[#1B4332] hover:bg-[#2D6A4F] text-white text-xs font-bold py-2.5 px-4 rounded-xl transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isScanning ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Evaluating Heuristics...</span>
+                      <span>Dispatching &amp; Evaluating...</span>
                     </>
                   ) : (
                     <>
@@ -338,10 +331,8 @@ export default function MobileSimulator() {
           </div>
 
           <div className="lg:col-span-7 flex flex-col items-center">
-            
             {activeTab === 'intercept' ? (
               <div className="w-[350px] h-[570px] bg-[#081510] rounded-[36px] p-3 shadow-2xl border-4 border-[#2D6A4F]/40 relative flex flex-col overflow-hidden">
-                
                 <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-28 h-4 bg-black rounded-b-xl z-20 flex items-center justify-center">
                   <div className="w-10 h-0.5 bg-neutral-800 rounded-full"></div>
                 </div>
@@ -487,13 +478,11 @@ export default function MobileSimulator() {
                       </button>
                     </div>
                   </div>
-
                 </div>
 
                 <div className="py-2 bg-[#081510] text-center">
                   <div className="w-24 h-1 bg-white/30 rounded-full mx-auto"></div>
                 </div>
-
               </div>
             ) : (
               <div className="w-full bg-white p-6 rounded-2xl border border-[#1B4332]/20 shadow-sm space-y-5 animate-fade-in">
@@ -550,11 +539,8 @@ export default function MobileSimulator() {
                 </div>
               </div>
             )}
-
           </div>
-
         </div>
-
       </div>
     </div>
   );
