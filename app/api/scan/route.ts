@@ -31,14 +31,14 @@ export interface ScannedMessageRow {
 // ======================================================
 
 const SHORTENED_DOMAINS = new Set([
-  "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "cutt.ly", "rb.gy", "is.gd", "t.me"
+  "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "cutt.ly", "rb.gy", "t.me"
 ]);
 
 const SUSPICIOUS_TLDS = [".top", ".xyz", ".club", ".work", ".click", ".link", ".site", ".live", ".online"];
 
 const SUSPICIOUS_HOST_KEYWORDS = ["kyc", "verify", "secure-login", "account-verify", "update-pan", "sbi-", "hdfc-"];
 
-// Exact word-boundary patterns to prevent false positives (e.g., 'bank' matching 'blanket')
+// Exact word-boundary patterns to prevent false positives
 const KEYWORD_PATTERNS: Array<{ pattern: RegExp; keyword: string }> = [
   { pattern: /\burgent\b/i, keyword: "urgent" },
   { pattern: /\bverify(\s+your)?\s+account\b/i, keyword: "verify account" },
@@ -62,7 +62,10 @@ const URL_REGEX = /(?:(?:https?:\/\/)|(?:www\.))?(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  const supabaseKey = 
+    process.env.SUPABASE_SERVICE_ROLE_KEY || 
+    process.env.SUPABASE_ANON_KEY || 
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
     return null;
@@ -203,7 +206,7 @@ export async function POST(request: NextRequest) {
       isQuarantined,
     };
 
-    // PRIVACY POLICY (Zero-Knowledge Clean Telemetry):
+    // PRIVACY POLICY:
     // Only persist to remote telemetry database if flagged as suspicious or critical threat (>= 35)
     const supabase = getSupabaseClient();
     if (supabase && riskScore >= 35) {
@@ -224,6 +227,8 @@ export async function POST(request: NextRequest) {
 
         if (!error && data) {
           responsePayload.id = (data as { id: string }).id;
+        } else if (error) {
+          console.error("Supabase insert error:", error.message);
         }
       } catch (dbErr) {
         console.warn("Supabase background telemetry sync skipped:", dbErr);
