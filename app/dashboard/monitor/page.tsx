@@ -9,10 +9,12 @@ import {
   Filter,
   AlertTriangle,
   Lock,
-  ArrowLeft
+  ArrowLeft,
+  RefreshCw
 } from 'lucide-react';
 import Link from 'next/link';
-import { getStoredLogs, subscribeToLogs, ThreatLog } from '../telemetry';
+import { subscribeToLogs, ThreatLog } from '../telemetry';
+import { supabase } from '@/lib/supabase';
 
 const TAKEDOWN_STORAGE_KEY = 'smishshield_dispatched_takedowns_v2';
 
@@ -56,6 +58,55 @@ export default function MonitorLandingPage() {
   const [takedowns, setTakedowns] = useState<Record<string, boolean>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<'ALL' | 'CRITICAL' | 'BANKING' | 'UTILITY'>('ALL');
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch initial incidents from Supabase
+  const loadDatabaseIncidents = async () => {
+    try {
+      if (!supabase) {
+        setLogs(initialMockLogs);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('scanned_messages')
+        .select('*')
+        .order('received_at', { ascending: false })
+        .limit(30);
+
+      if (error || !data || data.length === 0) {
+        setLogs(initialMockLogs);
+      } else {
+        const mappedFromDb: ThreatLog[] = data.map((item) => ({
+          id: `INC-${item.id.slice(0, 4).toUpperCase()}`,
+          sender: item.sender,
+          message: item.raw_text,
+          riskScore: item.risk_score,
+          status: item.threat_level === 'CRITICAL_PHISHING' 
+            ? 'Critical Threat' 
+            : item.threat_level === 'SUSPICIOUS' 
+            ? 'High Risk' 
+            : 'Safe',
+          timestamp: new Date(item.received_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }));
+
+        // Merge DB logs with fallback mock logs (preventing duplicate text)
+        const combined = [...mappedFromDb, ...initialMockLogs];
+        const uniqueMap = new Map<string, ThreatLog>();
+        combined.forEach((entry) => {
+          if (!uniqueMap.has(entry.message)) {
+            uniqueMap.set(entry.message, entry);
+          }
+        });
+
+        setLogs(Array.from(uniqueMap.values()));
+      }
+    } catch (e) {
+      setLogs(initialMockLogs);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -64,36 +115,58 @@ export default function MonitorLandingPage() {
         if (saved) {
           setTakedowns(JSON.parse(saved));
         } else {
-          // Initialize fresh storage starting at 0
           localStorage.setItem(TAKEDOWN_STORAGE_KEY, JSON.stringify({}));
           setTakedowns({});
         }
       } catch {}
     }
 
-    const stored = getStoredLogs().filter((l) => l.riskScore >= 45);
-    const combined = [...stored, ...initialMockLogs];
-    const uniqueMap = new Map();
-    combined.forEach((item) => {
-      if (!uniqueMap.has(item.message)) {
-        uniqueMap.set(item.message, item);
-      }
-    });
+    loadDatabaseIncidents();
 
-    setLogs(Array.from(uniqueMap.values()));
-
-    const unsubscribe = subscribeToLogs((newLog) => {
+    // 1. Listen via Cross-Tab Broadcast Channel
+    const unsubscribeBroadcast = subscribeToLogs((newLog) => {
       if (newLog.riskScore >= 45) {
-        setLogs((prevLogs) => {
-          if (prevLogs.length > 0 && prevLogs[0].message === newLog.message) {
-            return prevLogs;
-          }
-          return [newLog, ...prevLogs];
+        setLogs((prev) => {
+          if (prev.some((l) => l.message === newLog.message)) return prev;
+          return [newLog, ...prev];
         });
       }
     });
 
-    return () => unsubscribe();
+    // 2. Listen via Supabase Realtime WebSocket
+    let realtimeChannel: any = null;
+    if (supabase) {
+      realtimeChannel = supabase
+        .channel('realtime_monitor_feed')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'scanned_messages' },
+          (payload) => {
+            const newItem = payload.new;
+            const newLogEntry: ThreatLog = {
+              id: `INC-${newItem.id.slice(0, 4).toUpperCase()}`,
+              sender: newItem.sender,
+              message: newItem.raw_text,
+              riskScore: newItem.risk_score,
+              status: newItem.threat_level === 'CRITICAL_PHISHING' ? 'Critical Threat' : 'High Risk',
+              timestamp: new Date(newItem.received_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+
+            setLogs((prev) => {
+              if (prev.some((l) => l.message === newLogEntry.message)) return prev;
+              return [newLogEntry, ...prev];
+            });
+          }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      unsubscribeBroadcast();
+      if (supabase && realtimeChannel) {
+        supabase.removeChannel(realtimeChannel);
+      }
+    };
   }, []);
 
   const handleTakedown = (id: string) => {
@@ -226,16 +299,21 @@ export default function MonitorLandingPage() {
             <span className="text-[10px] text-[#2D6A4F] font-mono">SECURE FEED ENCRYPTION ENABLED</span>
           </div>
 
-          <div className="space-y-2.5">
-            {filteredLogs.length === 0 ? (
-              <div className="py-12 text-center bg-[#FAF8F5] border border-dashed border-[#1B4332]/20 rounded-xl space-y-2">
-                <AlertTriangle className="w-8 h-8 text-[#385348]/40 mx-auto" />
-                <p className="text-xs font-semibold text-[#081510]">
-                  No matching malicious signatures detected across active intercept streams.
-                </p>
-              </div>
-            ) : (
-              filteredLogs.map((log) => {
+          {isLoading ? (
+            <div className="py-12 text-center text-xs text-[#385348] flex items-center justify-center gap-2 font-mono">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span>Fetching incidents from Supabase...</span>
+            </div>
+          ) : filteredLogs.length === 0 ? (
+            <div className="py-12 text-center bg-[#FAF8F5] border border-dashed border-[#1B4332]/20 rounded-xl space-y-2">
+              <AlertTriangle className="w-8 h-8 text-[#385348]/40 mx-auto" />
+              <p className="text-xs font-semibold text-[#081510]">
+                No matching malicious signatures detected across active intercept streams.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {filteredLogs.map((log) => {
                 const isCritical = log.riskScore >= 75;
                 const isTakedownDone = takedowns[log.id];
                 const extractedUrlMatch = log.message.match(/https?:\/\/[^\s]+/i);
@@ -311,9 +389,9 @@ export default function MonitorLandingPage() {
                     </div>
                   </div>
                 );
-              })
-            )}
-          </div>
+              })}
+            </div>
+          )}
         </div>
       </main>
     </div>
