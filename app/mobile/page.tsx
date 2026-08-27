@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { scanMessageOnDevice } from './scanner';
 import { broadcastThreatLog, ThreatStatus } from '../dashboard/telemetry';
+import { supabase } from '@/lib/supabase'; // Connected Supabase client
 
 interface ExtendedScanHUD {
   riskScore: number;
@@ -77,7 +78,7 @@ export default function MobileSimulator() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const handleRunScan = (textToScan: string, senderHeader: string) => {
+  const handleRunScan = async (textToScan: string, senderHeader: string) => {
     setIsScanning(true);
     setIsQuarantined(false);
 
@@ -102,6 +103,7 @@ export default function MobileSimulator() {
       setScanResult(hudData);
 
       if (result.riskScore >= 45) {
+        // 1. Cross-tab Broadcast Channel
         broadcastThreatLog({
           id: `INC-${Math.floor(1000 + Math.random() * 9000)}`,
           sender: senderHeader,
@@ -110,6 +112,27 @@ export default function MobileSimulator() {
           riskScore: result.riskScore,
           status: mappedStatus
         });
+
+        // 2. Persist directly to Supabase Database
+        if (supabase) {
+          const { error } = await supabase
+            .from('scanned_messages')
+            .insert([
+              {
+                sender: senderHeader,
+                text: textToScan,
+                risk_score: result.riskScore,
+                threat_type: mappedStatus,
+                created_at: new Date().toISOString()
+              }
+            ]);
+
+          if (error) {
+            console.error('Supabase write error:', error.message);
+          } else {
+            console.log('Successfully recorded threat incident in Supabase.');
+          }
+        }
       }
     } catch (err) {
       console.error('Scan evaluation error:', err);
@@ -152,7 +175,6 @@ export default function MobileSimulator() {
     }, 800);
   };
 
-  // Interactive Action Handlers
   const handleFalsePositive = () => {
     showToast('Marked as False Positive. Heuristic whitelist updated.');
   };
@@ -411,7 +433,6 @@ export default function MobileSimulator() {
                     </div>
                   </div>
 
-                  {/* Comprehensive Interactive Options Box */}
                   <div className="mt-1 bg-white border border-neutral-200 rounded-xl p-2.5 shadow-sm space-y-2 animate-fade-in">
                     <div className="flex items-center justify-between px-0.5">
                       <p className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider">Quick Actions &amp; Overrides</p>
