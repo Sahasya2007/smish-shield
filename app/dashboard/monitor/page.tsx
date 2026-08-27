@@ -14,7 +14,7 @@ import {
 import Link from 'next/link';
 import { getStoredLogs, subscribeToLogs, ThreatLog } from '../telemetry';
 
-const TAKEDOWN_STORAGE_KEY = 'smishshield_dispatched_takedowns';
+const TAKEDOWN_STORAGE_KEY = 'smishshield_dispatched_takedowns_v2';
 
 const initialMockLogs: ThreatLog[] = [
   { 
@@ -63,6 +63,10 @@ export default function MonitorLandingPage() {
         const saved = localStorage.getItem(TAKEDOWN_STORAGE_KEY);
         if (saved) {
           setTakedowns(JSON.parse(saved));
+        } else {
+          // Initialize fresh storage starting at 0
+          localStorage.setItem(TAKEDOWN_STORAGE_KEY, JSON.stringify({}));
+          setTakedowns({});
         }
       } catch {}
     }
@@ -101,7 +105,6 @@ export default function MonitorLandingPage() {
     }
   };
 
-  // Starts from 0 and increments with each unique dispatched notice
   const dispatchedCount = Object.keys(takedowns).length;
 
   const exportCSV = () => {
@@ -132,44 +135,44 @@ export default function MonitorLandingPage() {
     });
 
   return (
-    <div className="min-h-screen bg-[#0D1F18] text-[#FAF8F5] font-sans">
+    <div className="min-h-screen bg-[#FAF8F5] text-[#2A453B] font-sans selection:bg-[#1B4332] selection:text-[#FAF8F5]">
       {/* Top Bar */}
-      <div className="bg-[#142820] text-[#FAF8F5] text-[11px] font-mono py-1.5 px-6 border-b border-[#1B4332]/40 flex items-center justify-between">
+      <div className="bg-[#FFFFFF] text-[#385348] text-[11px] font-mono py-1.5 px-6 border-b border-[#1B4332]/15 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="font-semibold tracking-wider text-[#52B788]">
+          <span className="w-2 h-2 rounded-full bg-[#2D6A4F] animate-pulse" />
+          <span className="font-semibold tracking-wider text-[#1B4332]">
             CERT-IN SECURE TELEMETRY FEED // ISOLATED MONITORING PAGE
           </span>
         </div>
-        <Link href="/dashboard" className="text-emerald-400 hover:underline flex items-center gap-1 font-bold">
+        <Link href="/dashboard" className="text-[#2D6A4F] hover:underline flex items-center gap-1 font-bold">
           <ArrowLeft className="w-3 h-3" /> Back to Dashboard
         </Link>
       </div>
 
-      <header className="max-w-7xl mx-auto px-6 py-6 border-b border-[#1B4332]/40 flex items-center justify-between">
+      <header className="max-w-7xl mx-auto px-6 py-6 border-b border-[#1B4332]/15 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Database className="w-8 h-8 text-emerald-400" />
+          <Database className="w-8 h-8 text-[#2D6A4F]" />
           <div>
-            <h1 className="text-xl font-extrabold text-white tracking-tight">
+            <h1 className="text-xl font-extrabold text-[#081510] tracking-tight font-serif">
               Live Threat Intercept Telemetry Feed
             </h1>
-            <p className="text-xs text-emerald-400/80 font-medium">
+            <p className="text-xs text-[#385348] font-medium">
               Real-time feed filtering logs with risk score &ge; 45%
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="bg-[#142820] border border-[#1B4332] px-4 py-1.5 rounded-xl text-right">
-            <span className="text-[10px] text-emerald-300/70 block uppercase font-mono">CERT-IN TAKEDOWNS</span>
-            <span className="text-sm font-black text-amber-400">{dispatchedCount}</span>
+          <div className="bg-[#FFFFFF] border border-[#1B4332]/15 px-4 py-1.5 rounded-xl text-right shadow-xs">
+            <span className="text-[10px] text-[#385348] block uppercase font-mono">CERT-IN TAKEDOWNS</span>
+            <span className="text-sm font-black text-[#B45309] font-serif">{dispatchedCount}</span>
           </div>
 
           <button
             onClick={exportCSV}
-            className="flex items-center gap-2 bg-[#142820] hover:bg-[#1B4332] text-white border border-[#1B4332] text-xs font-bold py-2 px-3.5 rounded-xl transition shadow-sm"
+            className="flex items-center gap-2 bg-[#FFFFFF] hover:bg-[#FAF8F5] text-[#081510] border border-[#1B4332]/15 text-xs font-bold py-2 px-3.5 rounded-xl transition shadow-xs"
           >
-            <Download className="w-3.5 h-3.5 text-emerald-400" />
+            <Download className="w-3.5 h-3.5 text-[#2D6A4F]" />
             <span>Export CERT-In CSV</span>
           </button>
         </div>
@@ -177,28 +180,28 @@ export default function MonitorLandingPage() {
 
       <main className="max-w-7xl mx-auto p-6 space-y-4">
         {/* Search & Filter Toolbar */}
-        <div className="bg-[#142820]/90 border border-[#1B4332] rounded-2xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-3">
+        <div className="bg-[#FFFFFF] border border-[#1B4332]/15 rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
           <div className="relative w-72">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-emerald-400/50" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#385348]/70" />
             <input
               type="text"
               placeholder="Search Incident ID, Header, or URL..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-[#0D1F18] border border-[#1B4332] rounded-xl pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+              className="w-full bg-[#FAF8F5] border border-[#1B4332]/15 rounded-xl pl-9 pr-3 py-1.5 text-xs text-[#081510] focus:outline-none focus:border-[#2D6A4F]"
             />
           </div>
 
-          <div className="flex items-center gap-1.5 bg-[#0D1F18] p-1 rounded-xl border border-[#1B4332] text-xs">
-            <Filter className="w-3.5 h-3.5 text-emerald-400/50 ml-2" />
+          <div className="flex items-center gap-1.5 bg-[#FAF8F5] p-1 rounded-xl border border-[#1B4332]/15 text-xs">
+            <Filter className="w-3.5 h-3.5 text-[#385348]/70 ml-2" />
             {(['ALL', 'CRITICAL', 'BANKING', 'UTILITY'] as const).map((cat) => (
               <button
                 key={cat}
                 onClick={() => setFilterCategory(cat)}
                 className={`px-3 py-1 rounded-lg font-semibold transition ${
                   filterCategory === cat
-                    ? 'bg-emerald-600 text-white'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-[#1B4332] text-[#FAF8F5]'
+                    : 'text-[#385348] hover:text-[#081510]'
                 }`}
               >
                 {cat === 'ALL'
@@ -214,20 +217,20 @@ export default function MonitorLandingPage() {
         </div>
 
         {/* Intercept Feed Table */}
-        <div className="bg-[#142820]/90 border border-[#1B4332] rounded-2xl p-5 shadow-sm space-y-3">
-          <div className="flex justify-between items-center pb-2 border-b border-[#1B4332]">
-            <h2 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <div className="bg-[#FFFFFF] border border-[#1B4332]/15 rounded-2xl p-5 shadow-xs space-y-3">
+          <div className="flex justify-between items-center pb-2 border-b border-[#1B4332]/15">
+            <h2 className="text-xs font-bold text-[#081510] uppercase tracking-wider flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#2D6A4F] animate-pulse"></span>
               Live Stream Active (Total Records: {filteredLogs.length})
             </h2>
-            <span className="text-[10px] text-emerald-400 font-mono">SECURE FEED ENCRYPTION ENABLED</span>
+            <span className="text-[10px] text-[#2D6A4F] font-mono">SECURE FEED ENCRYPTION ENABLED</span>
           </div>
 
           <div className="space-y-2.5">
             {filteredLogs.length === 0 ? (
-              <div className="py-12 text-center bg-[#0D1F18] border border-dashed border-[#1B4332] rounded-xl space-y-2">
-                <AlertTriangle className="w-8 h-8 text-emerald-500/40 mx-auto" />
-                <p className="text-xs font-semibold text-white">
+              <div className="py-12 text-center bg-[#FAF8F5] border border-dashed border-[#1B4332]/20 rounded-xl space-y-2">
+                <AlertTriangle className="w-8 h-8 text-[#385348]/40 mx-auto" />
+                <p className="text-xs font-semibold text-[#081510]">
                   No matching malicious signatures detected across active intercept streams.
                 </p>
               </div>
@@ -241,41 +244,41 @@ export default function MonitorLandingPage() {
                 return (
                   <div
                     key={log.id}
-                    className="flex flex-col md:flex-row md:items-center justify-between bg-[#0D1F18] border border-[#1B4332] p-4 rounded-xl hover:border-emerald-600/40 transition gap-3"
+                    className="flex flex-col md:flex-row md:items-center justify-between bg-[#FAF8F5] border border-[#1B4332]/15 p-4 rounded-xl hover:border-[#1B4332]/40 transition gap-3"
                   >
                     <div className="flex items-start gap-3.5">
                       <div className="flex flex-col items-center justify-center gap-1">
                         <span
                           className={`px-2.5 py-1 rounded-md text-[11px] font-black font-mono border ${
                             isCritical
-                              ? 'bg-rose-950 text-rose-300 border-rose-800'
-                              : 'bg-amber-950 text-amber-300 border-amber-800'
+                              ? 'bg-[#FEF2F2] text-[#991B1B] border-[#991B1B]/30'
+                              : 'bg-[#FFFBEB] text-[#B45309] border-[#B45309]/30'
                           }`}
                         >
                           {log.riskScore}%
                         </span>
-                        <span className="text-[9px] font-mono text-slate-400 font-bold">{log.id}</span>
+                        <span className="text-[9px] font-mono text-[#385348] font-bold">{log.id}</span>
                       </div>
 
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-white font-mono">{log.sender}</span>
-                          <span className="text-[10px] text-slate-400">&bull; {log.timestamp}</span>
+                          <span className="text-xs font-bold text-[#081510] font-mono">{log.sender}</span>
+                          <span className="text-[10px] text-[#385348]">&bull; {log.timestamp}</span>
                           <span
                             className={`text-[9px] font-semibold px-2 py-0.5 rounded ${
-                              isCritical ? 'bg-rose-900 text-white' : 'bg-amber-800 text-white'
+                              isCritical ? 'bg-[#991B1B] text-[#FFFFFF]' : 'bg-[#B45309] text-[#FFFFFF]'
                             }`}
                           >
                             {log.status}
                           </span>
                         </div>
                         
-                        <p className="text-xs text-slate-200 leading-relaxed max-w-2xl font-medium">
+                        <p className="text-xs text-[#2A453B] leading-relaxed max-w-2xl font-medium">
                           {log.message}
                         </p>
 
                         {extractedUrl && (
-                          <div className="flex items-center gap-1 text-[11px] font-mono text-rose-300 bg-rose-950/60 px-2 py-0.5 rounded border border-rose-900 w-fit">
+                          <div className="flex items-center gap-1 text-[11px] font-mono text-[#991B1B] bg-[#FEF2F2] px-2 py-0.5 rounded border border-[#991B1B]/20 w-fit">
                             <span>Suspect Payload URL:</span>
                             <span className="font-bold underline">{extractedUrl}</span>
                           </div>
@@ -289,13 +292,13 @@ export default function MonitorLandingPage() {
                         disabled={isTakedownDone}
                         className={`text-xs px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-2 border ${
                           isTakedownDone
-                            ? 'bg-emerald-950 text-emerald-300 border-emerald-800 cursor-default'
-                            : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500'
+                            ? 'bg-[#ECFDF5] text-[#2D6A4F] border-[#2D6A4F]/30 cursor-default'
+                            : 'bg-[#1B4332] hover:bg-[#2D6A4F] text-[#FAF8F5] border-[#1B4332]'
                         }`}
                       >
                         {isTakedownDone ? (
                           <>
-                            <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                            <CheckCircle2 className="w-4 h-4 text-[#2D6A4F]" />
                             <span>CERT-In Freezed &amp; Logged</span>
                           </>
                         ) : (
