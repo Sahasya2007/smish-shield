@@ -13,6 +13,21 @@ const STORAGE_KEY = 'smishshield_logs';
 type LogListener = (log: ThreatLog) => void;
 const listeners: Set<LogListener> = new Set();
 
+// Cross-tab communication channel
+const broadcastChannel =
+  typeof window !== 'undefined' && 'BroadcastChannel' in window
+    ? new BroadcastChannel('smishshield_telemetry_channel')
+    : null;
+
+if (broadcastChannel) {
+  broadcastChannel.onmessage = (event) => {
+    if (event.data && event.data.type === 'NEW_THREAT_LOG') {
+      const log = event.data.payload as ThreatLog;
+      listeners.forEach((listener) => listener(log));
+    }
+  };
+}
+
 export function getStoredLogs(): ThreatLog[] {
   if (typeof window === 'undefined') return [];
   try {
@@ -20,8 +35,6 @@ export function getStoredLogs(): ThreatLog[] {
     if (!raw) return [];
     
     const parsed: ThreatLog[] = JSON.parse(raw);
-
-    // Automatically filter out duplicates from existing storage so you don't have to manually clear it
     const uniqueLogs: ThreatLog[] = [];
     const seenMessages = new Set<string>();
 
@@ -32,8 +45,6 @@ export function getStoredLogs(): ThreatLog[] {
       }
     }
 
-    // Save the cleaned version back to localStorage
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(uniqueLogs));
     return uniqueLogs;
   } catch {
     return [];
@@ -44,12 +55,6 @@ export function saveLog(log: ThreatLog): void {
   if (typeof window === 'undefined') return;
   const current = getStoredLogs();
 
-  // 1. Prevent consecutive duplicate
-  if (current.length > 0 && current[0].message === log.message) {
-    return;
-  }
-
-  // 2. Prevent duplicate message anywhere in storage
   if (current.some((item) => item.message === log.message)) {
     return;
   }
@@ -69,5 +74,15 @@ export function broadcastThreatLog(log: ThreatLog): void {
   if (log.riskScore >= 45) {
     saveLog(log);
   }
+  
+  // Notify same-tab subscribers
   listeners.forEach((listener) => listener(log));
+
+  // Notify cross-tab subscribers
+  if (broadcastChannel) {
+    broadcastChannel.postMessage({
+      type: 'NEW_THREAT_LOG',
+      payload: log
+    });
+  }
 }
