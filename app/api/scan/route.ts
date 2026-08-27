@@ -58,21 +58,24 @@ const KEYWORD_PATTERNS: Array<{ pattern: RegExp; keyword: string }> = [
 const URL_REGEX = /(?:(?:https?:\/\/)|(?:www\.))?(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/[^\s<>"']*)?/gi;
 
 // ======================================================
-// SAFE SUPABASE CLIENT
+// SAFE SUPABASE CLIENT (AUTO-SANITIZED URL)
 // ======================================================
 
 function getSupabaseClient() {
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const rawUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_ANON_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseKey) {
+  if (!rawUrl || !supabaseKey) {
     return null;
   }
 
-  return createClient(supabaseUrl, supabaseKey);
+  // Strip trailing slashes, accidental spaces, and duplicate /rest/v1
+  const sanitizedUrl = rawUrl.trim().replace(/\/rest\/v1\/?$/, "").replace(/\/+$/, "");
+
+  return createClient(sanitizedUrl, supabaseKey);
 }
 
 // ======================================================
