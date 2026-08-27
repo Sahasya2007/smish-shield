@@ -53,6 +53,14 @@ const initialMockLogs: ThreatLog[] = [
   },
 ];
 
+// Standardizes any raw ID/UUID/timestamp into clean INC-XXXX format
+function normalizeIncidentId(rawId?: string): string {
+  if (!rawId) return `INC-${Math.floor(1000 + Math.random() * 9000)}`;
+  if (rawId.startsWith('INC-')) return rawId;
+  const clean = rawId.replace(/[^a-zA-Z0-9]/g, '');
+  return `INC-${clean.slice(0, 4).toUpperCase()}`;
+}
+
 export default function MonitorLandingPage() {
   const [logs, setLogs] = useState<ThreatLog[]>([]);
   const [takedowns, setTakedowns] = useState<Record<string, boolean>>({});
@@ -78,7 +86,7 @@ export default function MonitorLandingPage() {
         setLogs(initialMockLogs);
       } else {
         const mappedFromDb: ThreatLog[] = data.map((item) => ({
-          id: `INC-${item.id.slice(0, 4).toUpperCase()}`,
+          id: normalizeIncidentId(item.id),
           sender: item.sender,
           message: item.raw_text,
           riskScore: item.risk_score,
@@ -101,7 +109,7 @@ export default function MonitorLandingPage() {
 
         setLogs(Array.from(uniqueMap.values()));
       }
-    } catch (e) {
+    } catch {
       setLogs(initialMockLogs);
     } finally {
       setIsLoading(false);
@@ -123,18 +131,22 @@ export default function MonitorLandingPage() {
 
     loadDatabaseIncidents();
 
-    // 1. Listen via Cross-Tab Broadcast Channel
+    // 1. Listen via Cross-Tab Broadcast Channel & LocalStorage events
     const unsubscribeBroadcast = subscribeToLogs((newLog) => {
       if (newLog.riskScore >= 45) {
+        const formattedLog: ThreatLog = {
+          ...newLog,
+          id: normalizeIncidentId(newLog.id)
+        };
         setLogs((prev) => {
-          if (prev.some((l) => l.message === newLog.message)) return prev;
-          return [newLog, ...prev];
+          if (prev.some((l) => l.message === formattedLog.message)) return prev;
+          return [formattedLog, ...prev];
         });
       }
     });
 
     // 2. Listen via Supabase Realtime WebSocket
-    let realtimeChannel: any = null;
+    let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
     if (supabase) {
       realtimeChannel = supabase
         .channel('realtime_monitor_feed')
@@ -144,7 +156,7 @@ export default function MonitorLandingPage() {
           (payload) => {
             const newItem = payload.new;
             const newLogEntry: ThreatLog = {
-              id: `INC-${newItem.id.slice(0, 4).toUpperCase()}`,
+              id: normalizeIncidentId(newItem.id),
               sender: newItem.sender,
               message: newItem.raw_text,
               riskScore: newItem.risk_score,
@@ -202,8 +214,8 @@ export default function MonitorLandingPage() {
         log.id.toLowerCase().includes(searchTerm.toLowerCase());
 
       if (filterCategory === 'CRITICAL') return matchesSearch && log.riskScore >= 75;
-      if (filterCategory === 'BANKING') return matchesSearch && /sbi|hdfc|bank|pan|kyc/i.test(log.message);
-      if (filterCategory === 'UTILITY') return matchesSearch && /electricity|bill|power|water|bescom/i.test(log.message);
+      if (filterCategory === 'BANKING') return matchesSearch && /sbi|hdfc|bank|pan|kyc|icici/i.test(log.message);
+      if (filterCategory === 'UTILITY') return matchesSearch && /electricity|bill|power|water|bescom|refund|tax/i.test(log.message);
       return matchesSearch;
     });
 
@@ -243,7 +255,7 @@ export default function MonitorLandingPage() {
 
           <button
             onClick={exportCSV}
-            className="flex items-center gap-2 bg-[#FFFFFF] hover:bg-[#FAF8F5] text-[#081510] border border-[#1B4332]/15 text-xs font-bold py-2 px-3.5 rounded-xl transition shadow-xs"
+            className="flex items-center gap-2 bg-[#FFFFFF] hover:bg-[#FAF8F5] text-[#081510] border border-[#1B4332]/15 text-xs font-bold py-2 px-3.5 rounded-xl transition shadow-xs cursor-pointer"
           >
             <Download className="w-3.5 h-3.5 text-[#2D6A4F]" />
             <span>Export CERT-In CSV</span>
@@ -271,7 +283,7 @@ export default function MonitorLandingPage() {
               <button
                 key={cat}
                 onClick={() => setFilterCategory(cat)}
-                className={`px-3 py-1 rounded-lg font-semibold transition ${
+                className={`px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
                   filterCategory === cat
                     ? 'bg-[#1B4332] text-[#FAF8F5]'
                     : 'text-[#385348] hover:text-[#081510]'
@@ -316,7 +328,7 @@ export default function MonitorLandingPage() {
               {filteredLogs.map((log) => {
                 const isCritical = log.riskScore >= 75;
                 const isTakedownDone = takedowns[log.id];
-                const extractedUrlMatch = log.message.match(/https?:\/\/[^\s]+/i);
+                const extractedUrlMatch = log.message.match(/(?:https?:\/\/|[a-z0-9-]+\.(?:top|site|xyz|click|link|live|online|club|work|net|cc|in\.net|in|org|com))(?:\/[^\s]*)?/i);
                 const extractedUrl = extractedUrlMatch ? extractedUrlMatch[0] : null;
 
                 return (
@@ -368,7 +380,7 @@ export default function MonitorLandingPage() {
                       <button
                         onClick={() => handleTakedown(log.id)}
                         disabled={isTakedownDone}
-                        className={`text-xs px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-2 border ${
+                        className={`text-xs px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-2 border cursor-pointer ${
                           isTakedownDone
                             ? 'bg-[#ECFDF5] text-[#2D6A4F] border-[#2D6A4F]/30 cursor-default'
                             : 'bg-[#1B4332] hover:bg-[#2D6A4F] text-[#FAF8F5] border-[#1B4332]'
