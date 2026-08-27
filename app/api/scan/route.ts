@@ -34,24 +34,25 @@ const SHORTENED_DOMAINS = new Set([
   "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "cutt.ly", "rb.gy", "t.me"
 ]);
 
-const SUSPICIOUS_TLDS = [".top", ".xyz", ".club", ".work", ".click", ".link", ".site", ".live", ".online"];
+const SUSPICIOUS_TLDS = [
+  ".top", ".xyz", ".club", ".work", ".click", ".link", ".site", ".live", ".online", ".net", ".cc", ".in.net"
+];
 
-const SUSPICIOUS_HOST_KEYWORDS = ["kyc", "verify", "secure-login", "account-verify", "update-pan", "sbi-", "hdfc-"];
+const SUSPICIOUS_HOST_KEYWORDS = [
+  "kyc", "verify", "secure-login", "account-verify", "update-pan",
+  "sbi-", "hdfc-", "icici-", "income-tax", "tax-refund", "gov-in", "in-gov", "epfo-update", "jio-free"
+];
 
 // Exact word-boundary patterns to prevent false positives
 const KEYWORD_PATTERNS: Array<{ pattern: RegExp; keyword: string }> = [
-  { pattern: /\burgent\b/i, keyword: "urgent" },
-  { pattern: /\bverify(\s+your)?\s+account\b/i, keyword: "verify account" },
-  { pattern: /\b(bank|banking)\b/i, keyword: "bank" },
-  { pattern: /\blottery\b/i, keyword: "lottery" },
-  { pattern: /\b(ssn|pan\s*card)\b/i, keyword: "sensitive identity token (PAN/SSN)" },
-  { pattern: /\bpassword\s+reset\b/i, keyword: "password reset" },
-  { pattern: /\bclick\s+here\b/i, keyword: "click here" },
-  { pattern: /\baccount\s+(blocked|suspended|cutoff)\b/i, keyword: "account blocked/suspended" },
-  { pattern: /\b(login|log\s*in)\b/i, keyword: "login" },
-  { pattern: /\botp\b/i, keyword: "otp" },
-  { pattern: /\bkyc(\s+update)?\b/i, keyword: "kyc" },
-  { pattern: /\b(disconnect|electricity\s+supply)\b/i, keyword: "utility disconnection" },
+  { pattern: /\b(urgent|immediate|immediately|action required|today|pending|disconnection|cutoff)\b/i, keyword: "urgency / panic trigger" },
+  { pattern: /\b(validate|verify|claim|update|authenticate|click here|re-verify|login|log in)\b/i, keyword: "credential validation prompt" },
+  { pattern: /\b(refund|tax refund|itr|mandate|cashback|reward|won|prize|lottery)\b/i, keyword: "financial bait / refund hook" },
+  { pattern: /\b(income\s*tax|gov|pan|pan\s*card|ssn|epfo)\b/i, keyword: "government / identity impersonation" },
+  { pattern: /\b(bank|banking|account|yono|netbanking|hdfc|sbi|icici)\b/i, keyword: "banking entity" },
+  { pattern: /\b(blocked|suspended|permanently blocked|cutoff|expires)\b/i, keyword: "account threat / penalty" },
+  { pattern: /\b(otp|password reset)\b/i, keyword: "sensitive authentication token" },
+  { pattern: /\b(electricity|bill|power|water|bescom)\b/i, keyword: "utility spoofing" }
 ];
 
 const URL_REGEX = /(?:(?:https?:\/\/)|(?:www\.))?(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/[^\s<>"']*)?/gi;
@@ -62,9 +63,9 @@ const URL_REGEX = /(?:(?:https?:\/\/)|(?:www\.))?(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = 
-    process.env.SUPABASE_SERVICE_ROLE_KEY || 
-    process.env.SUPABASE_ANON_KEY || 
+  const supabaseKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
@@ -152,7 +153,7 @@ function analyzeMessageContent(text: string): {
     }
   }
 
-  const normalizedScore = Math.min(riskScore, 100);
+  const normalizedScore = Math.min(riskScore, 99);
 
   if (reasons.length === 0) {
     reasons.push("No immediate threat indicators detected");
@@ -194,8 +195,9 @@ export async function POST(request: NextRequest) {
     const isQuarantined = threatLevel === "CRITICAL_PHISHING";
     const receivedAt = new Date().toISOString();
 
+    // Standardized SOC incident identifier
     const responsePayload = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: `INC-${Math.floor(1000 + Math.random() * 9000)}`,
       sender,
       rawText,
       receivedAt,
@@ -206,8 +208,7 @@ export async function POST(request: NextRequest) {
       isQuarantined,
     };
 
-    // PRIVACY POLICY:
-    // Only persist to remote telemetry database if flagged as suspicious or critical threat (>= 35)
+    // PRIVACY POLICY: Persist telemetry to PostgreSQL if flagged as suspicious or critical
     const supabase = getSupabaseClient();
     if (supabase && riskScore >= 35) {
       try {
@@ -226,9 +227,9 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (!error && data) {
-          responsePayload.id = (data as { id: string }).id;
+          responsePayload.id = `INC-${(data as { id: string }).id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
         } else if (error) {
-          console.error("Supabase insert error:", error.message);
+          console.error("Supabase Database Insert Error:", error.message);
         }
       } catch (dbErr) {
         console.warn("Supabase background telemetry sync skipped:", dbErr);
@@ -276,7 +277,7 @@ export async function GET() {
 
     const rows = (data ?? []) as ScannedMessageRow[];
     const messages = rows.map((item) => ({
-      id: item.id,
+      id: item.id.startsWith("INC-") ? item.id : `INC-${item.id.replace(/-/g, "").slice(0, 4).toUpperCase()}`,
       sender: item.sender,
       rawText: item.raw_text,
       receivedAt: item.received_at,
