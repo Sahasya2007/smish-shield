@@ -21,47 +21,77 @@ import {
   Share2,
   Copy,
   MessageSquarePlus,
-  Languages
+  Languages,
+  CheckCircle
 } from 'lucide-react';
 import { scanMessageOnDevice, ThreatAssessment } from './scanner';
 import { broadcastThreatLog, ThreatStatus } from '../dashboard/telemetry';
 
 const PRESET_MESSAGES = [
+  // --- LEGITIMATE / SAFE SAMPLES (Will NOT be saved to DB or Telemetry) ---
+  {
+    id: 'MSG-SAFE-101',
+    sender: 'VM-HDFCBK',
+    lang: 'English',
+    text: 'Your HDFC Bank account ending 4891 has been credited with Rs 25,000.00 on 28-Aug-2026. Ref UPI/58291048. Download app on official Play Store.',
+    type: 'SAFE'
+  },
+  {
+    id: 'MSG-SAFE-102',
+    sender: 'AD-SBIINB',
+    lang: 'English',
+    text: '584920 is your One Time Password (OTP) for SBI NetBanking login. OTP is valid for 3 minutes. Do not share OTP or passwords with anyone.',
+    type: 'SAFE'
+  },
+  {
+    id: 'MSG-SAFE-103',
+    sender: 'AX-SWIGGY',
+    lang: 'English',
+    text: 'Your Swiggy delivery partner Rahul is on the way with your dinner order #8492. Track in-app safely.',
+    type: 'SAFE'
+  },
+  // --- MALICIOUS & PHISHING SAMPLES (Flagged & Synced to SOC DB) ---
   {
     id: 'MSG-8841',
     sender: 'AD-SBIALERT',
     lang: 'English',
     text: 'Dear Customer, your SBI YONO account is suspended today due to pending KYC update. Verify immediately via http://sbi-kyc-update.in/auth',
+    type: 'THREAT'
   },
   {
     id: 'MSG-8842',
     sender: 'VM-JIOOFFER',
     lang: 'English',
     text: 'Congratulations! You won Rs 5000 cashback reward. Claim your prize instantly at http://jio-free-rewards.xyz/claim',
+    type: 'THREAT'
   },
   {
     id: 'MSG-8843',
     sender: 'AX-INCOMETAX',
     lang: 'English',
     text: 'Immediate tax refund of Rs 14,850 pending. Validate your bank mandate via http://income-tax-gov.in.net/portal',
+    type: 'THREAT'
   },
   {
     id: 'MSG-8844',
     sender: '+919876543210',
     lang: 'Hindi (हिंदी)',
     text: 'अति आवश्यक सूचना: आपका बिजली कनेक्शन आज रात 9:30 बजे काट दिया जाएगा। तुरंत बिल भरें: http://192.168.1.1/pay',
+    type: 'THREAT'
   },
   {
     id: 'MSG-8845',
     sender: 'XX-ODISHA',
     lang: 'Odia (ଓଡ଼ିଆ)',
     text: 'ଜରୁରୀ ସୂଚନା: ଆପଣଙ୍କର ବ୍ୟାଙ୍କ ଖାତା ବନ୍ଦ ହୋଇଯାଇଛି। ତୁରନ୍ତ କେୱାଇସି ଅପଡେଟ୍ କରନ୍ତୁ: http://bank-update.top/od',
+    type: 'THREAT'
   },
   {
     id: 'MSG-8846',
     sender: '+919840123456',
     lang: 'Tamil (தமிழ்)',
     text: 'கணக்கு முடக்கப்பட்டது: உங்கள் வங்கி கணக்கு தற்காலிகமாக நிறுத்தப்பட்டுள்ளது. உடனடியாக சரிபார்க்கவும்: http://hdfc-verify.club/tn',
+    type: 'THREAT'
   }
 ];
 
@@ -89,18 +119,24 @@ export default function MobileSimulator() {
     setIsScanning(true);
     setIsQuarantined(false);
 
-    // 1. Instant 100% Offline Local Scan Execution (0ms Latency)
+    // 1. Instant 100% Offline Local Scan Execution (0ms Latency on Device)
     const localResult = scanMessageOnDevice(textToScan, senderHeader);
     setScanResult(localResult);
+
+    // 2. ZERO TELEMETRY LEAKAGE FOR SAFE MESSAGES
+    // If the message is safe (<35% risk), we strictly do NOT write to database or broadcast telemetry
+    if (localResult.riskScore < 35) {
+      showToast('Payload analyzed: SAFE. Zero data uploaded to cloud (Privacy Protected).');
+      setIsScanning(false);
+      return;
+    }
 
     const mappedStatus: ThreatStatus = 
       localResult.riskScore >= 70 
         ? 'Critical Threat' 
-        : localResult.riskScore >= 35 
-        ? 'High Risk' 
-        : 'Safe';
+        : 'High Risk';
 
-    // 2. Asynchronous Telemetry Persistence to Database (Non-blocking)
+    // 3. Asynchronous Telemetry Persistence ONLY for Suspicious / Threat Messages
     try {
       const res = await fetch('/api/scan', {
         method: 'POST',
@@ -113,19 +149,17 @@ export default function MobileSimulator() {
 
       const data = await res.json();
 
-      // 3. Local cross-tab broadcast for real-time monitoring
-      if (localResult.riskScore >= 45) {
-        broadcastThreatLog({
-          id: data.id || `INC-${Math.floor(1000 + Math.random() * 9000)}`,
-          sender: senderHeader,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          message: textToScan,
-          riskScore: localResult.riskScore,
-          status: mappedStatus
-        });
-      }
+      // 4. Local cross-tab broadcast for real-time SOC monitoring
+      broadcastThreatLog({
+        id: data.id || `INC-${Math.floor(1000 + Math.random() * 9000)}`,
+        sender: senderHeader,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        message: textToScan,
+        riskScore: localResult.riskScore,
+        status: mappedStatus
+      });
 
-      showToast('Offline analysis complete & telemetry synced.');
+      showToast('Threat detected: Logged to CERT-In telemetry stream.');
     } catch {
       showToast('Offline analysis complete (Standalone Mode).');
     } finally {
@@ -149,7 +183,8 @@ export default function MobileSimulator() {
       id: `MSG-${Math.floor(1000 + Math.random() * 9000)}`,
       sender: senderToUse,
       lang: 'Custom',
-      text: textToUse
+      text: textToUse,
+      type: 'CUSTOM'
     };
 
     setSelectedMessage(customObj);
@@ -187,7 +222,7 @@ export default function MobileSimulator() {
 
   const handleCopyPayload = () => {
     navigator.clipboard?.writeText(selectedMessage.text);
-    showToast('Malicious text snippet copied to clipboard.');
+    showToast('Text snippet copied to clipboard.');
   };
 
   const handleSimulateFollowUp = () => {
@@ -196,7 +231,8 @@ export default function MobileSimulator() {
       id: `MSG-${Math.floor(1000 + Math.random() * 9000)}`,
       sender: selectedMessage.sender,
       lang: 'English',
-      text: followUpText
+      text: followUpText,
+      type: 'THREAT'
     };
     setSelectedMessage(followUpObj);
     setCustomText(followUpText);
@@ -204,6 +240,7 @@ export default function MobileSimulator() {
   };
 
   const isCritical = scanResult.riskScore >= 70;
+  const isSafe = scanResult.riskScore < 35;
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-[#081510] font-sans p-4 sm:p-8 relative">
@@ -260,47 +297,61 @@ export default function MobileSimulator() {
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[#1B4332] flex items-center gap-2">
                   <Smartphone className="w-4 h-4 text-[#2D6A4F]" />
-                  Select Test Vectors (Indic &amp; Spoof)
+                  Select Test Vectors
                 </h3>
                 <span className="text-[10px] bg-[#1B4332]/10 text-[#1B4332] font-mono px-2 py-0.5 rounded font-bold flex items-center gap-1">
-                  <Languages className="w-3 h-3" /> Multi-Script
+                  <Languages className="w-3 h-3" /> Safe &amp; Threat Samples
                 </span>
               </div>
 
-              <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
-                {PRESET_MESSAGES.map((msg) => (
-                  <button
-                    key={msg.id}
-                    onClick={() => handleSelectPreset(msg)}
-                    className={`w-full text-left p-3 rounded-xl border transition text-xs flex flex-col gap-1 cursor-pointer ${
-                      selectedMessage.id === msg.id
-                        ? 'bg-[#1B4332]/10 border-[#1B4332] text-[#081510] font-semibold'
-                        : 'bg-[#FAF8F5] border-[#1B4332]/15 hover:border-[#1B4332]/40 text-[#081510]/80'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center font-mono">
-                      <span className="text-[#1B4332] font-bold">{msg.sender}</span>
-                      <span className="text-[9px] bg-neutral-200 text-neutral-700 px-1.5 py-0.5 rounded font-sans">
-                        {msg.lang}
-                      </span>
-                    </div>
-                    <p className="line-clamp-2 leading-relaxed text-[11px]">{msg.text}</p>
-                  </button>
-                ))}
+              <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                {PRESET_MESSAGES.map((msg) => {
+                  const isSafeMsg = msg.type === 'SAFE';
+                  return (
+                    <button
+                      key={msg.id}
+                      onClick={() => handleSelectPreset(msg)}
+                      className={`w-full text-left p-3 rounded-xl border transition text-xs flex flex-col gap-1 cursor-pointer ${
+                        selectedMessage.id === msg.id
+                          ? 'bg-[#1B4332]/10 border-[#1B4332] text-[#081510] font-semibold'
+                          : 'bg-[#FAF8F5] border-[#1B4332]/15 hover:border-[#1B4332]/40 text-[#081510]/80'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center font-mono">
+                        <div className="flex items-center gap-1.5">
+                          {isSafeMsg ? (
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          ) : (
+                            <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                          )}
+                          <span className={`font-bold ${isSafeMsg ? 'text-emerald-800' : 'text-[#1B4332]'}`}>
+                            {msg.sender}
+                          </span>
+                        </div>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-sans font-semibold ${
+                          isSafeMsg ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                        }`}>
+                          {isSafeMsg ? 'Verified Safe' : msg.lang}
+                        </span>
+                      </div>
+                      <p className="line-clamp-2 leading-relaxed text-[11px]">{msg.text}</p>
+                    </button>
+                  );
+                })}
               </div>
 
               <form onSubmit={handleCustomSubmit} className="pt-3 border-t border-neutral-100 space-y-3">
                 <span className="text-xs font-bold text-[#1B4332] block">Custom SMS Test:</span>
                 <input
                   type="text"
-                  placeholder="Sender ID (e.g. AD-SBI, +919876543210)"
+                  placeholder="Sender ID (e.g. VM-HDFCBK, AD-SBI, +919876543210)"
                   value={customSender}
                   onChange={(e) => setCustomSender(e.target.value)}
                   className="w-full bg-[#FAF8F5] border border-[#1B4332]/20 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#1B4332]"
                 />
                 <textarea
                   rows={2}
-                  placeholder="Paste message (English, Hindi, Odia, Tamil, etc.)..."
+                  placeholder="Paste message text..."
                   value={customText}
                   onChange={(e) => setCustomText(e.target.value)}
                   className="w-full bg-[#FAF8F5] border border-[#1B4332]/20 rounded-xl p-3 text-xs focus:outline-none focus:border-[#1B4332]"
@@ -356,7 +407,11 @@ export default function MobileSimulator() {
                       <p className="text-[8px] text-[#FAF8F5]/70 font-mono">{scanResult.dltStatus}</p>
                     </div>
                   </div>
-                  <ShieldAlert className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                  {isSafe ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <ShieldAlert className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                  )}
                 </div>
 
                 {/* Chat Scroll Area */}
@@ -373,27 +428,45 @@ export default function MobileSimulator() {
                     <span className="text-[8px] text-neutral-400 block text-right mt-1 font-mono">09:41 AM</span>
                   </div>
 
-                  {/* SmishShield Alert Banner */}
+                  {/* SmishShield Assessment Banner */}
                   <div className={`w-full rounded-xl p-2.5 shadow-sm border transition-all ${
-                    isCritical ? 'bg-rose-50 border-rose-300 text-rose-950' : scanResult.riskScore >= 35 ? 'bg-amber-50 border-amber-300 text-amber-950' : 'bg-emerald-50 border-emerald-300 text-emerald-950'
+                    isSafe
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
+                      : isCritical
+                      ? 'bg-rose-50 border-rose-300 text-rose-950'
+                      : 'bg-amber-50 border-amber-300 text-amber-950'
                   }`}>
                     <div className="flex items-start gap-2">
-                      <div className={`p-1 rounded-lg mt-0.5 text-white ${isCritical ? 'bg-rose-700' : scanResult.riskScore >= 35 ? 'bg-amber-700' : 'bg-emerald-700'}`}>
-                        <ShieldAlert className="w-3.5 h-3.5" />
+                      <div className={`p-1 rounded-lg mt-0.5 text-white ${
+                        isSafe ? 'bg-emerald-700' : isCritical ? 'bg-rose-700' : 'bg-amber-700'
+                      }`}>
+                        {isSafe ? <CheckCircle2 className="w-3.5 h-3.5" /> : <ShieldAlert className="w-3.5 h-3.5" />}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <p className="text-[11px] font-black">
-                            {isQuarantined ? 'Payload Quarantined' : scanResult.riskScore >= 35 ? 'Blocked by SmishShield' : 'Payload Verified'}
+                            {isSafe
+                              ? 'Verified Legitimate SMS'
+                              : isQuarantined
+                              ? 'Payload Quarantined'
+                              : 'Blocked by SmishShield'}
                           </p>
                           <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
-                            isCritical ? 'bg-rose-200 text-rose-900' : scanResult.riskScore >= 35 ? 'bg-amber-200 text-amber-900' : 'bg-emerald-200 text-emerald-900'
+                            isSafe
+                              ? 'bg-emerald-200 text-emerald-900'
+                              : isCritical
+                              ? 'bg-rose-200 text-rose-900'
+                              : 'bg-amber-200 text-amber-900'
                           }`}>
                             {scanResult.riskScore}% Risk
                           </span>
                         </div>
                         <p className="text-[10px] mt-0.5 opacity-90 leading-snug">
-                          {isQuarantined ? 'Threat neutralized in local secure vault.' : `${scanResult.threatType} (${scanResult.detectedLanguage})`}
+                          {isSafe
+                            ? 'No malicious patterns detected. Zero telemetry uploaded.'
+                            : isQuarantined
+                            ? 'Threat neutralized in local secure vault.'
+                            : `${scanResult.threatType} (${scanResult.detectedLanguage})`}
                         </p>
                       </div>
                     </div>
@@ -401,14 +474,15 @@ export default function MobileSimulator() {
                     <div className="mt-2 grid grid-cols-3 gap-1 pt-2 border-t border-current/20">
                       <button 
                         onClick={handleQuarantineAction}
-                        disabled={isQuarantined}
+                        disabled={isQuarantined || isSafe}
                         className="bg-white hover:bg-neutral-100 disabled:opacity-50 text-[8px] font-bold py-1 px-0.5 rounded border border-current/20 text-center transition cursor-pointer"
                       >
                         {isQuarantined ? 'Quarantined' : 'Quarantine'}
                       </button>
                       <button 
                         onClick={handleReport1930Action}
-                        className="bg-white hover:bg-neutral-100 text-[8px] font-bold py-1 px-0.5 rounded border border-current/20 text-center transition cursor-pointer"
+                        disabled={isSafe}
+                        className="bg-white hover:bg-neutral-100 disabled:opacity-50 text-[8px] font-bold py-1 px-0.5 rounded border border-current/20 text-center transition cursor-pointer"
                       >
                         Report 1930
                       </button>
@@ -421,7 +495,7 @@ export default function MobileSimulator() {
                     </div>
                   </div>
 
-                  {/* Restored Quick Actions & Overrides Grid */}
+                  {/* Quick Actions & Overrides Grid */}
                   <div className="bg-white border border-neutral-200 rounded-xl p-2.5 shadow-xs space-y-2 animate-fade-in">
                     <div className="flex items-center justify-between px-0.5">
                       <p className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider">Quick Actions &amp; Overrides</p>
@@ -491,7 +565,11 @@ export default function MobileSimulator() {
                     <h3 className="text-sm font-bold text-[#1B4332]">Local Heuristic &amp; SSL Certificate Inspector</h3>
                   </div>
                   <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full font-mono uppercase ${
-                    isCritical ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+                    isSafe
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : isCritical
+                      ? 'bg-rose-100 text-rose-800'
+                      : 'bg-amber-100 text-amber-800'
                   }`}>
                     {scanResult.threatType}
                   </span>
@@ -500,7 +578,9 @@ export default function MobileSimulator() {
                 <div className="grid grid-cols-3 gap-3">
                   <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#1B4332]/10">
                     <span className="text-[10px] text-neutral-500 block uppercase font-mono">TRAI DLT Telephony</span>
-                    <span className="text-[11px] font-bold text-rose-700 flex items-center gap-1 mt-1">
+                    <span className={`text-[11px] font-bold flex items-center gap-1 mt-1 ${
+                      scanResult.dltStatus === 'VERIFIED TRAI DLT' ? 'text-emerald-700' : 'text-rose-700'
+                    }`}>
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {scanResult.dltStatus}
                     </span>
                   </div>
