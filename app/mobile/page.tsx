@@ -20,6 +20,7 @@ import {
   FileText,
   Share2,
   Copy,
+  MessageSquarePlus,
   Languages
 } from 'lucide-react';
 import { scanMessageOnDevice, ThreatAssessment } from './scanner';
@@ -155,6 +156,53 @@ export default function MobileSimulator() {
     handleRunScan(textToUse, senderToUse);
   };
 
+  const handleQuarantineAction = () => {
+    setIsQuarantined(true);
+    showToast('Payload successfully isolated & quarantined in local vault.');
+  };
+
+  const handleReport1930Action = () => {
+    showToast('Redirecting packet telemetry to national portal...');
+    setTimeout(() => {
+      window.open('https://cybercrime.gov.in', '_blank');
+    }, 800);
+  };
+
+  const handleFalsePositive = () => {
+    showToast('Marked as False Positive. Heuristic whitelist updated.');
+  };
+
+  const handleBlockSender = () => {
+    showToast(`Sender ID ${selectedMessage.sender} added to blackhole filter.`);
+  };
+
+  const handleViewRawHeaders = () => {
+    setActiveTab('inspector');
+    showToast('Loaded raw payload bytes into Byte Inspector.');
+  };
+
+  const handleShareIoC = () => {
+    showToast('IoC bundle generated & copied for community feed sharing.');
+  };
+
+  const handleCopyPayload = () => {
+    navigator.clipboard?.writeText(selectedMessage.text);
+    showToast('Malicious text snippet copied to clipboard.');
+  };
+
+  const handleSimulateFollowUp = () => {
+    const followUpText = "Urgent: Your account will be permanently blocked within 2 hours. Click here to re-verify: http://sbi-secure-update.com";
+    const followUpObj = {
+      id: `MSG-${Math.floor(1000 + Math.random() * 9000)}`,
+      sender: selectedMessage.sender,
+      lang: 'English',
+      text: followUpText
+    };
+    setSelectedMessage(followUpObj);
+    setCustomText(followUpText);
+    handleRunScan(followUpObj.text, followUpObj.sender);
+  };
+
   const isCritical = scanResult.riskScore >= 70;
 
   return (
@@ -188,7 +236,7 @@ export default function MobileSimulator() {
           <div className="flex items-center gap-2 bg-[#0D1F18] p-1.5 rounded-xl border border-[#2D6A4F]/40">
             <button
               onClick={() => setActiveTab('intercept')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeTab === 'intercept' ? 'bg-[#1B4332] text-white shadow' : 'text-[#FAF8F5]/70 hover:text-white'
               }`}
             >
@@ -196,7 +244,7 @@ export default function MobileSimulator() {
             </button>
             <button
               onClick={() => setActiveTab('inspector')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeTab === 'inspector' ? 'bg-[#1B4332] text-white shadow' : 'text-[#FAF8F5]/70 hover:text-white'
               }`}
             >
@@ -206,7 +254,7 @@ export default function MobileSimulator() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Vectors List */}
+          {/* Left Panel: Test Vectors */}
           <div className="lg:col-span-5 space-y-4">
             <div className="bg-white border border-[#1B4332]/15 rounded-2xl p-5 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
@@ -224,7 +272,7 @@ export default function MobileSimulator() {
                   <button
                     key={msg.id}
                     onClick={() => handleSelectPreset(msg)}
-                    className={`w-full text-left p-3 rounded-xl border transition text-xs flex flex-col gap-1 ${
+                    className={`w-full text-left p-3 rounded-xl border transition text-xs flex flex-col gap-1 cursor-pointer ${
                       selectedMessage.id === msg.id
                         ? 'bg-[#1B4332]/10 border-[#1B4332] text-[#081510] font-semibold'
                         : 'bg-[#FAF8F5] border-[#1B4332]/15 hover:border-[#1B4332]/40 text-[#081510]/80'
@@ -278,14 +326,16 @@ export default function MobileSimulator() {
             </div>
           </div>
 
-          {/* Device Mockup */}
+          {/* Right Panel: Phone Mockup / Inspector */}
           <div className="lg:col-span-7 flex flex-col items-center">
             {activeTab === 'intercept' ? (
-              <div className="w-[350px] h-[570px] bg-[#081510] rounded-[36px] p-3 shadow-2xl border-4 border-[#2D6A4F]/40 relative flex flex-col overflow-hidden">
+              <div className="w-[360px] h-[640px] bg-[#081510] rounded-[38px] p-3 shadow-2xl border-4 border-[#2D6A4F]/40 relative flex flex-col overflow-hidden">
+                {/* Notch */}
                 <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-28 h-4 bg-black rounded-b-xl z-20 flex items-center justify-center">
                   <div className="w-10 h-0.5 bg-neutral-800 rounded-full"></div>
                 </div>
 
+                {/* Status Bar */}
                 <div className="pt-2 px-3 flex justify-between items-center text-white text-[9px] font-mono z-10">
                   <span>09:41</span>
                   <div className="flex items-center gap-1">
@@ -295,6 +345,7 @@ export default function MobileSimulator() {
                   </div>
                 </div>
 
+                {/* Sender Header */}
                 <div className="mt-3 px-3 py-1.5 bg-[#1B4332]/95 backdrop-blur-md rounded-t-lg border-b border-[#2D6A4F]/40 flex items-center justify-between text-white">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-full bg-[#2D6A4F] flex items-center justify-center font-bold text-[10px]">
@@ -308,11 +359,13 @@ export default function MobileSimulator() {
                   <ShieldAlert className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
                 </div>
 
+                {/* Chat Scroll Area */}
                 <div className="flex-1 bg-[#FAF8F5] p-2.5 overflow-y-auto flex flex-col gap-2">
                   <div className="text-center my-0.5">
                     <span className="text-[8px] bg-neutral-200 text-neutral-600 px-2 py-0.5 rounded-full font-mono">Today 09:41 AM</span>
                   </div>
 
+                  {/* SMS Bubble */}
                   <div className={`max-w-[90%] bg-white rounded-xl rounded-tl-sm p-3 shadow-sm border transition-all ${isQuarantined ? 'opacity-40 border-dashed border-neutral-400' : 'border-neutral-200'} relative`}>
                     <p className="text-[11px] text-[#081510] leading-relaxed font-medium">
                       {isQuarantined ? '[QUARANTINED & SANITIZED BY SMISHSHIELD]' : selectedMessage.text}
@@ -320,6 +373,7 @@ export default function MobileSimulator() {
                     <span className="text-[8px] text-neutral-400 block text-right mt-1 font-mono">09:41 AM</span>
                   </div>
 
+                  {/* SmishShield Alert Banner */}
                   <div className={`w-full rounded-xl p-2.5 shadow-sm border transition-all ${
                     isCritical ? 'bg-rose-50 border-rose-300 text-rose-950' : scanResult.riskScore >= 35 ? 'bg-amber-50 border-amber-300 text-amber-950' : 'bg-emerald-50 border-emerald-300 text-emerald-950'
                   }`}>
@@ -346,34 +400,91 @@ export default function MobileSimulator() {
 
                     <div className="mt-2 grid grid-cols-3 gap-1 pt-2 border-t border-current/20">
                       <button 
-                        onClick={() => { setIsQuarantined(true); showToast('Isolated in local vault.'); }}
+                        onClick={handleQuarantineAction}
                         disabled={isQuarantined}
-                        className="bg-white hover:bg-neutral-100 disabled:opacity-50 text-[8px] font-bold py-1 px-0.5 rounded border border-current/20 text-center transition"
+                        className="bg-white hover:bg-neutral-100 disabled:opacity-50 text-[8px] font-bold py-1 px-0.5 rounded border border-current/20 text-center transition cursor-pointer"
                       >
                         {isQuarantined ? 'Quarantined' : 'Quarantine'}
                       </button>
                       <button 
-                        onClick={() => window.open('https://cybercrime.gov.in', '_blank')}
-                        className="bg-white hover:bg-neutral-100 text-[8px] font-bold py-1 px-0.5 rounded border border-current/20 text-center transition"
+                        onClick={handleReport1930Action}
+                        className="bg-white hover:bg-neutral-100 text-[8px] font-bold py-1 px-0.5 rounded border border-current/20 text-center transition cursor-pointer"
                       >
                         Report 1930
                       </button>
                       <button 
                         onClick={() => setActiveTab('inspector')} 
-                        className="bg-[#1B4332] hover:bg-[#2D6A4F] text-white text-[8px] font-bold py-1 px-0.5 rounded text-center transition flex items-center justify-center gap-0.5"
+                        className="bg-[#1B4332] hover:bg-[#2D6A4F] text-white text-[8px] font-bold py-1 px-0.5 rounded text-center transition flex items-center justify-center gap-0.5 cursor-pointer"
                       >
                         Inspect <ArrowRight className="w-2.5 h-2.5" />
                       </button>
                     </div>
                   </div>
+
+                  {/* Restored Quick Actions & Overrides Grid */}
+                  <div className="bg-white border border-neutral-200 rounded-xl p-2.5 shadow-xs space-y-2 animate-fade-in">
+                    <div className="flex items-center justify-between px-0.5">
+                      <p className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider">Quick Actions &amp; Overrides</p>
+                      <span className="text-[8px] font-mono text-[#2D6A4F] bg-[#1B4332]/10 px-1.5 py-0.5 rounded font-bold">Active Sandbox</span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button
+                        onClick={handleFalsePositive}
+                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition cursor-pointer shadow-2xs"
+                      >
+                        <ShieldOff className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>False Positive</span>
+                      </button>
+                      <button
+                        onClick={handleBlockSender}
+                        className="bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition cursor-pointer shadow-2xs"
+                      >
+                        <UserX className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Block Sender</span>
+                      </button>
+                      <button
+                        onClick={handleViewRawHeaders}
+                        className="bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition cursor-pointer shadow-2xs"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-sky-600" />
+                        <span>Raw Headers</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-neutral-100">
+                      <button
+                        onClick={handleShareIoC}
+                        className="bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition cursor-pointer shadow-2xs"
+                      >
+                        <Share2 className="w-3.5 h-3.5 text-purple-600" />
+                        <span>Share IoC</span>
+                      </button>
+                      <button
+                        onClick={handleCopyPayload}
+                        className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition cursor-pointer shadow-2xs"
+                      >
+                        <Copy className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Copy Text</span>
+                      </button>
+                      <button
+                        onClick={handleSimulateFollowUp}
+                        className="bg-neutral-900 hover:bg-neutral-800 text-white border border-neutral-700 rounded-lg py-1.5 px-1 text-[8px] font-bold flex flex-col items-center justify-center gap-0.5 transition cursor-pointer shadow-2xs"
+                      >
+                        <MessageSquarePlus className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Follow-up SMS</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
+                {/* Home Indicator */}
                 <div className="py-2 bg-[#081510] text-center">
                   <div className="w-24 h-1 bg-white/30 rounded-full mx-auto"></div>
                 </div>
               </div>
             ) : (
-              <div className="w-full bg-white p-6 rounded-2xl border border-[#1B4332]/20 shadow-sm space-y-5">
+              <div className="w-full bg-white p-6 rounded-2xl border border-[#1B4332]/20 shadow-sm space-y-5 animate-fade-in">
                 <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
                   <div className="flex items-center gap-2">
                     <Terminal className="w-5 h-5 text-[#2D6A4F]" />
@@ -434,7 +545,7 @@ export default function MobileSimulator() {
                   </div>
                   <button
                     onClick={() => setActiveTab('intercept')}
-                    className="bg-[#1B4332] hover:bg-[#2D6A4F] text-white text-xs font-bold py-2 px-4 rounded-xl transition"
+                    className="bg-[#1B4332] hover:bg-[#2D6A4F] text-white text-xs font-bold py-2 px-4 rounded-xl transition cursor-pointer"
                   >
                     Back to Mobile View
                   </button>
