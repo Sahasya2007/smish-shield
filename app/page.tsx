@@ -3,6 +3,7 @@ import SmishShieldLogo from "@/components/SmishShieldLogo";
 import {
   Smartphone,
   Terminal,
+  Cpu,
   ArrowUpRight,
   Lock,
   Zap,
@@ -67,8 +68,8 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Dual Primary Portals */}
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+        {/* Triple Primary Portals */}
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
           {/* Card 1: Mobile Simulator */}
           <Link
             href="/mobile"
@@ -148,6 +149,48 @@ export default function Home() {
             <div className="mt-8 flex items-center justify-between border-t border-[#1B4332]/10 pt-4 font-mono text-xs font-semibold text-[#1B4332]">
               <span className="transition-transform duration-200 group-hover:translate-x-0.5">
                 Open Command Center
+              </span>
+              <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1 group-hover:-translate-y-1" />
+            </div>
+          </Link>
+
+          {/* Card 3: On-Device ML Pipeline Inspection */}
+          <Link
+            href="/ml-engine"
+            className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[#1B4332]/15 bg-white p-8 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-[#1B4332]/40 hover:shadow-xl hover:shadow-[#1B4332]/5"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#1B4332]/5 border border-[#1B4332]/15 text-[#1B4332] transition-all duration-200 group-hover:bg-[#1B4332] group-hover:text-[#FAF8F5] group-hover:shadow-md">
+                  <Cpu className="h-6 w-6" />
+                </div>
+                <span className="font-mono text-[11px] uppercase tracking-wider text-[#1B4332] font-semibold bg-[#1B4332]/5 px-2.5 py-1 rounded-md border border-[#1B4332]/15">
+                  Edge AI Engine
+                </span>
+              </div>
+
+              <h2 className="text-2xl font-bold text-[#081510] tracking-tight transition-colors duration-200 group-hover:text-[#1B4332]">
+                On-Device ML Pipeline
+              </h2>
+              <p className="mt-3 text-sm text-[#385348] leading-relaxed">
+                Inspect INT8 quantized ONNX inference, offline token decomposition, sub-120ms latency budgets, and DPDP privacy gating.
+              </p>
+
+              <div className="mt-6 space-y-2.5 font-mono text-xs text-[#2A453B] border-t border-[#1B4332]/10 pt-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#2D6A4F] shrink-0" />
+                  <span>INT8 Quantized Execution Graph</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#2D6A4F] shrink-0" />
+                  <span>Sub-120ms Local Device Budget</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 flex items-center justify-between border-t border-[#1B4332]/10 pt-4 font-mono text-xs font-semibold text-[#1B4332]">
+              <span className="transition-transform duration-200 group-hover:translate-x-0.5">
+                Inspect ML Engine
               </span>
               <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1 group-hover:-translate-y-1" />
             </div>

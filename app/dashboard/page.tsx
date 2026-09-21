@@ -17,7 +17,8 @@ import {
   Radio,
   CheckCircle,
   RefreshCw,
-  Share2
+  Share2,
+  Cpu
 } from 'lucide-react';
 import Link from 'next/link';
 import { getStoredLogs, ThreatLog } from './telemetry';
@@ -97,6 +98,16 @@ export default function AdminDashboard() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* On-Device ML Pipeline Inspection Link */}
+          <Link
+            href="/ml-engine"
+            className="flex items-center gap-2 bg-white hover:bg-slate-50 text-[#1B4332] text-xs font-semibold py-2 px-3.5 rounded-xl border border-[#1B4332]/20 transition shadow-xs"
+          >
+            <Cpu className="w-3.5 h-3.5 text-[#2D6A4F]" />
+            <span>ML Engine Pipeline</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
+          </Link>
+
           <Link
             href="/mobile"
             target="_blank"

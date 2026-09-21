@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { 
   ShieldAlert, 
   Wifi, 
@@ -22,7 +23,8 @@ import {
   Copy,
   MessageSquarePlus,
   Languages,
-  CheckCircle
+  CheckCircle,
+  Cpu
 } from 'lucide-react';
 import { scanMessageOnDevice, ThreatAssessment } from './scanner';
 import { broadcastThreatLog, ThreatStatus } from '../dashboard/telemetry';
@@ -270,7 +272,7 @@ export default function MobileSimulator() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-[#0D1F18] p-1.5 rounded-xl border border-[#2D6A4F]/40">
+          <div className="flex flex-wrap items-center gap-2 bg-[#0D1F18] p-1.5 rounded-xl border border-[#2D6A4F]/40">
             <button
               onClick={() => setActiveTab('intercept')}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
@@ -287,6 +289,14 @@ export default function MobileSimulator() {
             >
               Byte &amp; SSL Inspector
             </button>
+            <Link
+              href="/ml-engine"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-emerald-300 hover:text-white hover:bg-[#1B4332] transition border border-[#2D6A4F]/50"
+            >
+              <Cpu className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Inspect ML Pipeline</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            </Link>
           </div>
         </div>
 
