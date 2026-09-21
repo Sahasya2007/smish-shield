@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { NavbarProps } from '../types';
 
 export default function Navbar({ activeTab, onTabChange, systemStatus = 'SECURE' }: NavbarProps) {
@@ -51,6 +52,15 @@ export default function Navbar({ activeTab, onTabChange, systemStatus = 'SECURE'
               </button>
             );
           })}
+
+          {/* Dedicated On-Device ML Pipeline Inspection Link */}
+          <Link
+            href="/ml-engine"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#1B4332] bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-300/60 transition-all shadow-xs ml-1"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+            ML Engine
+          </Link>
         </nav>
 
         {/* System Status Indicator */}
