@@ -11,7 +11,6 @@ import {
   Lock,
   Timer,
   Microchip,
-  HelpCircle,
   TrendingDown
 } from 'lucide-react';
 
@@ -40,17 +39,61 @@ const PRESET_TEST_CASES = [
   },
 ];
 
+// Precision multi-factor heuristic and tensor classification evaluator
+function evaluatePayloadRisk(text: string): { smish: number; benign: number } {
+  const lower = text.toLowerCase();
+
+  // 1. Actionable Attack Vectors (Must contain an exfiltration or detonation vector)
+  const hasUrl = /(https?:\/\/|www\.|bit\.ly|tinyurl|is\.gd|\.xyz|\.top|\.club|\.net\/)/i.test(lower);
+  const hasUpi = lower.includes('upi://') || lower.includes('@upi') || lower.includes('pay=');
+  const hasPhonePrompt = /(call|contact|officer|whatsapp|helpline|reach)\s*(at|on|:)?\s*(\+91)?\d{10}/i.test(lower);
+
+  // 2. Phishing Contexts
+  const hasAccountAction = lower.includes('kyc') || lower.includes('pan') || lower.includes('mandate') || lower.includes('suspended') || lower.includes('blocked');
+  const hasUrgency = lower.includes('urgent') || lower.includes('immediate') || lower.includes('tonight') || lower.includes('within 2 hours');
+  const hasBillDemand = lower.includes('unpaid') || lower.includes('due bill') || lower.includes('pay bill');
+
+  // CRITICAL GATE: If there is NO link, NO UPI scheme, and NO phone number to call,
+  // it is physically impossible for the citizen to be compromised via click or callback.
+  if (!hasUrl && !hasUpi && !hasPhonePrompt) {
+    if (hasAccountAction && hasUrgency) {
+      // Suspicious phrasing alone without exfiltration route
+      return { smish: 0.12, benign: 0.88 };
+    }
+    // Pure informational notices (e.g. "power cut at 10:30")
+    return { smish: 0.02, benign: 0.98 };
+  }
+
+  // 3. Compounding Threat Vectors (Vector + Phishing Context)
+  if (hasUpi || (hasUrl && hasAccountAction)) {
+    return { smish: 0.96, benign: 0.04 }; // Direct credential / payment phishing trap
+  }
+
+  if ((hasUrl || hasPhonePrompt) && (hasBillDemand || hasUrgency)) {
+    return { smish: 0.91, benign: 0.09 }; // Actual utility/banking scam with actionable destination
+  }
+
+  if (hasUrl) {
+    return { smish: 0.45, benign: 0.55 }; // Unknown link without overt context
+  }
+
+  return { smish: 0.05, benign: 0.95 };
+}
+
 export default function MlVisualizer() {
   const [inputText, setInputText] = useState(PRESET_TEST_CASES[0].text);
   const [hardwareBackend, setHardwareBackend] = useState<'NPU' | 'CPU'>('NPU');
   const [isInferring, setIsInferring] = useState(false);
   const [activeLayerStep, setActiveLayerStep] = useState<number>(-1);
-  const [tokens, setTokens] = useState<string[]>([]);
+  const [tokens, setTokens] = useState<string[]>(() =>
+    PRESET_TEST_CASES[0].text.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(Boolean)
+  );
   const [latency, setLatency] = useState<number | null>(39);
-  const [scores, setScores] = useState<{ smish: number; benign: number } | null>({
-    smish: 0.96,
-    benign: 0.04,
-  });
+
+  // Dynamically compute risk based on initial preset
+  const [scores, setScores] = useState<{ smish: number; benign: number } | null>(() =>
+    evaluatePayloadRisk(PRESET_TEST_CASES[0].text)
+  );
 
   const modelLayers: LayerOutput[] = [
     {
@@ -91,20 +134,24 @@ export default function MlVisualizer() {
     },
   ];
 
+  const handleTextChange = (newText: string) => {
+    setInputText(newText);
+    const parsed = newText.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(Boolean);
+    setTokens(parsed);
+  };
+
+  const handleSelectPreset = (text: string) => {
+    setInputText(text);
+    const parsed = text.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(Boolean);
+    setTokens(parsed);
+    setScores(evaluatePayloadRisk(text));
+  };
+
   const runSimulation = () => {
     setIsInferring(true);
     setScores(null);
     setActiveLayerStep(0);
 
-    const parsedTokens = inputText
-      .toLowerCase()
-      .replace(/[^\w\s]/g, '')
-      .split(/\s+/)
-      .filter(Boolean);
-
-    setTokens(parsedTokens);
-
-    // Sequential tensor propagation down the ONNX graph
     const stepDuration = hardwareBackend === 'NPU' ? 90 : 160;
 
     let step = 0;
@@ -116,21 +163,9 @@ export default function MlVisualizer() {
         clearInterval(interval);
         setActiveLayerStep(-1);
 
-        const lower = inputText.toLowerCase();
-        const isSuspicious =
-          lower.includes('urgent') ||
-          lower.includes('suspended') ||
-          lower.includes('kyc') ||
-          lower.includes('power cut') ||
-          lower.includes('bit.ly') ||
-          lower.includes('upi://');
+        const evaluatedScores = evaluatePayloadRisk(inputText);
+        setScores(evaluatedScores);
 
-        const smishScore = isSuspicious ? 0.96 : 0.04;
-        const benignScore = Number((1 - smishScore).toFixed(2));
-
-        setScores({ smish: smishScore, benign: benignScore });
-
-        // NPU runs at ~38-44ms; CPU runs at ~70-78ms
         const calculatedLatency = hardwareBackend === 'NPU'
           ? Math.floor(Math.random() * 8) + 38
           : Math.floor(Math.random() * 10) + 72;
@@ -241,7 +276,7 @@ export default function MlVisualizer() {
               {PRESET_TEST_CASES.map((preset, idx) => (
                 <button
                   key={idx}
-                  onClick={() => setInputText(preset.text)}
+                  onClick={() => handleSelectPreset(preset.text)}
                   className="px-2.5 py-1 rounded-lg text-[11px] font-semibold font-mono bg-[#FAF8F5] hover:bg-[#1B4332]/10 text-[#1B4332] border border-[#1B4332]/20 transition cursor-pointer"
                 >
                   {preset.tag}
@@ -254,7 +289,8 @@ export default function MlVisualizer() {
         <textarea
           rows={3}
           value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
+          onChange={(e) => handleTextChange(e.target.value)}
+          placeholder="Enter SMS text to analyze..."
           className="w-full bg-[#FAF8F5] border border-[#1B4332]/20 rounded-2xl p-3.5 text-xs text-[#081510] font-sans focus:outline-none focus:border-[#1B4332] focus:ring-1 focus:ring-[#1B4332]"
         />
 
@@ -305,17 +341,18 @@ export default function MlVisualizer() {
             </p>
 
             <div className="mt-4 flex flex-wrap gap-1.5 max-h-44 overflow-y-auto pr-1">
-              {(tokens.length > 0
-                ? tokens
-                : inputText.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(Boolean)
-              ).map((token, i) => (
-                <span
-                  key={i}
-                  className="px-2 py-1 text-[11px] rounded-md bg-[#FAF8F5] text-[#1B4332] border border-[#1B4332]/20 font-mono font-medium shadow-2xs"
-                >
-                  [{token}]
-                </span>
-              ))}
+              {tokens.length > 0 ? (
+                tokens.map((token, i) => (
+                  <span
+                    key={i}
+                    className="px-2 py-1 text-[11px] rounded-md bg-[#FAF8F5] text-[#1B4332] border border-[#1B4332]/20 font-mono font-medium shadow-2xs"
+                  >
+                    [{token}]
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-slate-400 italic">No tokens available</span>
+              )}
             </div>
           </div>
 
@@ -351,13 +388,15 @@ export default function MlVisualizer() {
               <div className="mt-4 space-y-4">
                 <div>
                   <div className="flex justify-between text-xs font-bold mb-1.5">
-                    <span className="text-[#991B1B]">Phishing / Smishing Probability</span>
+                    <span className={scores.smish >= 0.5 ? 'text-[#991B1B]' : 'text-[#2D6A4F]'}>
+                      Phishing / Smishing Probability
+                    </span>
                     <span className="font-mono text-sm">{(scores.smish * 100).toFixed(1)}%</span>
                   </div>
                   <div className="h-3 w-full bg-[#FAF8F5] rounded-full overflow-hidden border border-[#1B4332]/15 p-0.5">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
-                        scores.smish > 0.5 ? 'bg-[#991B1B]' : 'bg-[#2D6A4F]'
+                        scores.smish >= 0.5 ? 'bg-[#991B1B]' : 'bg-[#2D6A4F]'
                       }`}
                       style={{ width: `${scores.smish * 100}%` }}
                     />
@@ -396,7 +435,7 @@ export default function MlVisualizer() {
         </div>
       </div>
 
-      {/* Quantized ONNX Execution Graph with Layer-by-Layer Propagation Highlighting */}
+      {/* Quantized ONNX Execution Graph */}
       <div className="bg-white border border-[#1B4332]/15 rounded-3xl p-6 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
           <div>
